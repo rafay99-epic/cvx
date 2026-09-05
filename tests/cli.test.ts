@@ -212,12 +212,16 @@ describe("run", () => {
     expect(q.code).toBe(0);
     expect(q.out).toContain("percent 100% & pipe |");
   });
-  test("resolves .cmd shims (npx) through the safe path", () => {
-    // npx is npx.cmd on Windows — exercises runInherit's cmd.exe branch there.
-    const r = cvx(["run", "work", "--", "npx", "--version"]);
-    expect(r.code).toBe(0);
-    expect(r.out.trim()).toMatch(/^\d+\./);
-  });
+  test(
+    "resolves .cmd shims (npx) through the safe path",
+    () => {
+      // npx is npx.cmd on Windows — exercises runInherit's cmd.exe branch there.
+      const r = cvx(["run", "work", "--", "npx", "--version"]);
+      expect(r.code).toBe(0);
+      expect(r.out.trim()).toMatch(/^\d+\./);
+    },
+    30_000, // a cold npx on a fresh CI runner can take well over bun's 5s default
+  );
 });
 
 describe("rename / rm", () => {
@@ -434,6 +438,7 @@ describe("team mismatch guard", () => {
     const r = cvx(["activate", PROJ]);
     expect(r.out).toContain("team mismatch");
     expect(r.out).toContain("other-team");
+    expect(r.out).toContain("cvx doctor"); // stale team cache (renamed on Convex) is the usual cause
     expect(cvx(["activate", "-q", PROJ]).out).toContain("team mismatch");
     // status shows it too
     expect(cvx(["status"], { cwd: PROJ }).out).toContain("team mismatch");

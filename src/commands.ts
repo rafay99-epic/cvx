@@ -124,7 +124,8 @@ function warnTeamMismatch(dir: string, name: string, acc: Account, say = console
   say(
     `${yellow("▲")} team mismatch: this project's deployment belongs to ${bold(team)}, ` +
       `but ${bold(name)} only has ${acc.teams.map((t) => t.slug).join(", ")}.\n` +
-      dim("  Linked to the wrong account? Fix with: cvx link <account>"),
+      dim("  Linked to the wrong account? Fix with: cvx link <account>\n") +
+      dim("  Team renamed on Convex? Refresh the stored team list with: cvx doctor"),
   );
 }
 
@@ -1349,11 +1350,18 @@ export async function cmdDoctor(args: string[] = []) {
       }
       const sp = spin(`  checking ${name}…`);
       try {
-        await verifyToken(t);
+        const teams = await verifyToken(t);
         const age = ago(acc.verifiedAt);
         sp.stop(
           `  ${green("✓")} ${accountColor(name, name.padEnd(14))} ${dim("valid")}${email}${age ? dim(` · last verified ${age}`) : ""}`,
         );
+        // Teams get renamed/added on Convex's side; the vault only knows what
+        // it saw at `add` time. Take the fresh list so the team-mismatch guard
+        // stops firing on a slug that no longer exists.
+        const before = acc.teams.map((x) => x.slug).join(", ");
+        const after = teams.map((x) => x.slug).join(", ");
+        if (before !== after) console.log(dim(`      teams: ${before || "(none)"} → ${after || "(none)"}`));
+        acc.teams = teams;
         acc.verifiedAt = new Date().toISOString();
         verifiedAny = true;
       } catch (e) {

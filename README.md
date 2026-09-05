@@ -200,7 +200,7 @@ change).
 | `cvx vault <status\|encrypt\|decrypt\|unlock\|lock>` | Passphrase-encrypt stored tokens (unlock once per session) |
 | `cvx export [file]` / `cvx import <file>` | Encrypted vault backup / restore — new-machine setup in one command |
 | `cvx upgrade` | Check for a newer release and print the exact upgrade command |
-| `cvx doctor [--fix]` | Check setup + per-account token health (`--fix` repairs hook/links/marker/tokens) |
+| `cvx doctor [--fix]` | Check setup + per-account token health; also refreshes each account's stored team list (`--fix` repairs hook/links/marker/tokens) |
 | `cvx completions <shell>` | Print a completion script (zsh/bash/fish/powershell) |
 | `cvx hook [--install] [--shell …]` | Install the shell hook (zsh/bash/fish/nu/powershell); `--install` also upgrades an outdated installed hook in place |
 
