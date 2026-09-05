@@ -434,6 +434,7 @@ describe("team mismatch guard", () => {
     const r = cvx(["activate", PROJ]);
     expect(r.out).toContain("team mismatch");
     expect(r.out).toContain("other-team");
+    expect(r.out).toContain("cvx doctor"); // stale team cache (renamed on Convex) is the usual cause
     expect(cvx(["activate", "-q", PROJ]).out).toContain("team mismatch");
     // status shows it too
     expect(cvx(["status"], { cwd: PROJ }).out).toContain("team mismatch");
