@@ -212,12 +212,16 @@ describe("run", () => {
     expect(q.code).toBe(0);
     expect(q.out).toContain("percent 100% & pipe |");
   });
-  test("resolves .cmd shims (npx) through the safe path", () => {
-    // npx is npx.cmd on Windows — exercises runInherit's cmd.exe branch there.
-    const r = cvx(["run", "work", "--", "npx", "--version"]);
-    expect(r.code).toBe(0);
-    expect(r.out.trim()).toMatch(/^\d+\./);
-  });
+  test(
+    "resolves .cmd shims (npx) through the safe path",
+    () => {
+      // npx is npx.cmd on Windows — exercises runInherit's cmd.exe branch there.
+      const r = cvx(["run", "work", "--", "npx", "--version"]);
+      expect(r.code).toBe(0);
+      expect(r.out.trim()).toMatch(/^\d+\./);
+    },
+    30_000, // a cold npx on a fresh CI runner can take well over bun's 5s default
+  );
 });
 
 describe("rename / rm", () => {
