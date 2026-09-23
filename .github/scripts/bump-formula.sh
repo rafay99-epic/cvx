@@ -32,7 +32,7 @@ base="https://github.com/${REPO}/releases/download/v${VERSION}"
 
 read -r -d '' FORMULA <<EOF || true
 class Cvx < Formula
-  desc "Per-project Convex account switching — no deploy keys, no tokens in repos"
+  desc "Per-project Convex account switching without deploy keys or tokens in repos"
   homepage "https://github.com/${REPO}"
   version "${VERSION}"
   license "MIT"
@@ -68,7 +68,7 @@ class Cvx < Formula
     man1.install "cvx.1"
     # Tab completion out of the box: runs \`cvx completions <shell>\` at
     # install time and places each script where the shell expects it.
-    generate_completions_from_executable(bin/"cvx", "completions", shells: [:zsh, :bash, :fish])
+    generate_completions_from_executable(bin/"cvx", "completions")
   end
 
   def caveats
