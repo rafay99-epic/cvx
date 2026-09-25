@@ -3,459 +3,460 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="cvx (Convex Switch) — run every Convex account at once. Bind each project to an account and switch automatically when you cd in. No deploy keys, no tokens in your repos.">
-<meta name="color-scheme" content="light dark">
-<title>Convex Switch — one terminal, every Convex account</title>
+<title>cvx: switch Convex accounts per project folder</title>
+<meta name="description" content="cvx binds Convex accounts to project folders and switches as you cd. Each terminal holds its own account. A field guide to Vex, the chameleon who does it.">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#000000">
+<meta property="og:type" content="website">
+<meta property="og:title" content="cvx: a field guide to Vex">
+<meta property="og:description" content="Convex accounts that follow you into each project folder. Every terminal holds its own.">
+<meta property="og:image" content="/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Vex the chameleon on black, with the word cvx">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="cvx: a field guide to Vex">
+<meta name="twitter:description" content="Convex accounts that follow you into each project folder. Every terminal holds its own.">
+<meta name="twitter:image" content="/og.png">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='184 86 64 64'%3E%3Crect x='184' y='86' width='64' height='64' fill='%23000'/%3E%3Cpath d='M190,102 L214,102 A22,22 0 0 1 236,124 A17,17 0 0 1 202,124 A12,12 0 0 1 226,124 A7,7 0 0 1 212,124' fill='none' stroke='%2387d787' stroke-width='6.5' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script>document.documentElement.className = "js";</script>
 <style>
-  :root {
-    --paper: #f4f6f7;
-    --raise: #ffffff;
-    --ink: #15191c;
-    --muted: #5a6570;
-    --faint: #8b95a0;
-    --line: #e2e6e9;
-    --line-strong: #d3d9dd;
-    --accent: #0c8577;
-    --accent-ink: #096b60;
-    --ok: #1f8a4c;
-    --grid: rgba(12,133,119,.05);
-    --term-bg: #10151a;
-    --term-ink: #cfd8dd;
-    --term-muted: #6d7c86;
-    --term-accent: #3fd8c3;
-    --term-ok: #6cc57f;
-    --shadow: 0 1px 2px rgba(20,30,40,.05), 0 12px 40px rgba(20,30,40,.08);
-    --mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace;
-    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --paper: #0c0f11; --raise: #12171a; --ink: #e7eced; --muted: #97a2ab; --faint: #6a757e;
-      --line: #1f262b; --line-strong: #2a3238; --accent: #37d3be; --accent-ink: #5fe0cf; --ok: #4cc66a;
-      --grid: rgba(55,211,190,.06); --term-bg: #0a0e11;
-      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 16px 50px rgba(0,0,0,.5);
-    }
-  }
-  :root[data-theme="light"] {
-    --paper: #f4f6f7; --raise: #ffffff; --ink: #15191c; --muted: #5a6570; --faint: #8b95a0;
-    --line: #e2e6e9; --line-strong: #d3d9dd; --accent: #0c8577; --accent-ink: #096b60; --ok: #1f8a4c;
-    --grid: rgba(12,133,119,.05); --term-bg: #10151a;
-    --shadow: 0 1px 2px rgba(20,30,40,.05), 0 12px 40px rgba(20,30,40,.08);
-  }
-  :root[data-theme="dark"] {
-    --paper: #0c0f11; --raise: #12171a; --ink: #e7eced; --muted: #97a2ab; --faint: #6a757e;
-    --line: #1f262b; --line-strong: #2a3238; --accent: #37d3be; --accent-ink: #5fe0cf; --ok: #4cc66a;
-    --grid: rgba(55,211,190,.06); --term-bg: #0a0e11;
-    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 16px 50px rgba(0,0,0,.5);
-  }
+:root {
+  --ink: #fff; --text: #e6e6e3; --soft: #b3b3ad; --mute: #8d8d86;
+  --line: #1f1f1d; --line2: #36362f; --rest: #87d787; --alarm: #ff5f5f;
+  --serif: "Instrument Serif", Georgia, serif;
+  --text-serif: "Newsreader", Georgia, serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+* { box-sizing: border-box; }
+html { background: #000; }
+body { margin: 0; background: #000; color: var(--text); font: 17px/1.6 var(--text-serif); -webkit-font-smoothing: antialiased; }
+a { color: var(--ink); text-decoration-color: var(--mute); text-underline-offset: 3px; }
+a:hover { text-decoration-color: var(--ink); }
+:focus-visible { outline: 2px solid var(--rest); outline-offset: 3px; }
+code, pre { font-family: var(--mono); }
+code { font-size: .84em; color: #fff; }
+button { font: inherit; color: inherit; }
+p { margin: 0; }
+[hidden] { display: none !important; }
+html:not(.js) [data-js] { display: none !important; }
+.js [data-nojs] { display: none !important; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.skip { position: absolute; left: 12px; top: -80px; z-index: 20; background: #fff; color: #000; padding: 8px 12px; font: 600 13px var(--mono); }
+.skip:focus { top: 10px; }
+.defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 
-  * { box-sizing: border-box; }
-  html { -webkit-text-size-adjust: 100%; overflow-x: hidden; scroll-behavior: smooth; }
-  body {
-    margin: 0; background: var(--paper); color: var(--ink);
-    font-family: var(--sans); line-height: 1.6; font-size: 16px;
-    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
-    overflow-x: hidden;
-  }
-  /* Ambient terminal grid, faded out below the hero. Purely decorative. */
-  body::before {
-    content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
-    background-image:
-      linear-gradient(to right, var(--grid) 1px, transparent 1px),
-      linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
-    background-size: 34px 34px;
-    -webkit-mask-image: radial-gradient(120% 55% at 50% -5%, #000 25%, transparent 72%);
-    mask-image: radial-gradient(120% 55% at 50% -5%, #000 25%, transparent 72%);
-  }
-  body > * { position: relative; z-index: 1; }
+.btn { font: 600 12px var(--mono); background: #fff; color: #000; border: 1px solid #fff; padding: 7px 12px; cursor: pointer; }
+.btn:hover { background: var(--rest); border-color: var(--rest); }
+.btn.ghost { background: #000; color: #fff; border-color: var(--line2); }
+.btn.ghost:hover, .btn.ghost[aria-pressed="true"] { background: #fff; color: #000; border-color: #fff; }
 
-  .wrap { width: 100%; max-width: 880px; margin: 0 auto; padding: 0 24px; }
-  a { color: var(--accent-ink); text-decoration: none; }
-  a:hover { text-decoration: underline; text-underline-offset: 3px; }
-  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
-  ::selection { background: color-mix(in srgb, var(--accent) 26%, transparent); }
+/* rig: body lives in #vx; these style the face and the per-context variables */
+svg.vex-rig { display: block; overflow: visible; }
+.vex-rig .twig { fill: none; stroke: #3a3a35; stroke-width: 5; stroke-linecap: round; }
+.vex-rig .mouth { fill: none; stroke: rgba(0,0,0,.6); stroke-width: 2.2; stroke-linecap: round; }
+.vex-rig .lid { fill: none; stroke: rgba(0,0,0,.72); stroke-width: 2.4; stroke-linecap: round; display: none; }
+.vex-rig .pupil-dot { fill: #060606; }
+.vex-rig .glint { fill: #fff; }
+.vex-rig .mark { font: 700 22px var(--mono); fill: #fff; }
+.vex-rig .tongue { fill: none; stroke: #ff8fab; stroke-width: 3; stroke-linecap: round; opacity: 0; }
+.vex-rig.m-sleepy .pupil, .vex-rig.m-wink .pupil { display: none; }
+.vex-rig.m-sleepy .lid, .vex-rig.m-wink .lid { display: inline; }
+.vex-rig.m-sleepy .skin { opacity: .55; }
+.vex-rig.m-alarm .mark { fill: var(--alarm); }
+.vex-rig.camo { --band: rgba(0,0,0,.05); --ln: rgba(0,0,0,.07); --edge: rgba(0,0,0,.07); }
+.vex-rig.camo .mouth { stroke: rgba(0,0,0,.07); }
+.vex-rig.camo .pupil-dot { fill: rgba(0,0,0,.12); }
+.vex-rig.camo .glint { opacity: 0; }
+.vex-rig.ghost { --fill: none; --edge: #fff; --ew: 1.3; --limb: #fff; --lw: 1.3; --tw: 1.3; --band: rgba(255,255,255,.5); --bw: 1; --ln: rgba(255,255,255,.75); --lnw: 1.1; }
+.vex-rig.ghost .mouth { stroke: #fff; stroke-width: 1.3; }
+.vex-rig.ghost .pupil-dot { fill: #fff; }
 
-  .mono { font-family: var(--mono); }
-  .eyebrow {
-    display: inline-flex; align-items: center; gap: 10px;
-    font-family: var(--mono); font-size: 12px; letter-spacing: .18em;
-    text-transform: uppercase; color: var(--accent-ink); font-weight: 600;
-  }
-  .eyebrow::before { content: ""; width: 16px; height: 1px; background: currentColor; opacity: .8; }
+/* bar */
+.bar { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 12px 22px; font: 13px var(--mono); }
+.word { font: 600 18px var(--mono); color: #fff; text-decoration: none; letter-spacing: -.01em; }
+.word span { color: var(--rest); margin-left: 4px; }
+.bar nav { display: flex; gap: 20px; }
+.bar nav a { color: var(--soft); text-decoration: none; }
+.bar nav a:hover { color: #fff; }
 
-  /* ---- nav ---- */
-  nav {
-    position: sticky; top: 0; z-index: 20;
-    background: color-mix(in srgb, var(--paper) 86%, transparent);
-    backdrop-filter: blur(9px); -webkit-backdrop-filter: blur(9px);
-    border-bottom: 1px solid var(--line);
-  }
-  .nav-in { display: flex; align-items: center; justify-content: space-between; height: 58px; gap: 12px; }
-  .brand { display: flex; align-items: baseline; gap: 9px; font-family: var(--mono); }
-  .brand b { font-weight: 700; font-size: 17px; letter-spacing: -.01em; }
-  .brand .v { font-size: 11px; color: var(--muted); border: 1px solid var(--line-strong); border-radius: 999px; padding: 1px 7px; }
-  .nav-links { display: flex; align-items: center; gap: 22px; font-family: var(--mono); font-size: 13.5px; }
-  .nav-links a { color: var(--muted); position: relative; }
-  .nav-links a::after {
-    content: ""; position: absolute; left: 0; right: 100%; bottom: -5px; height: 1.5px;
-    background: var(--accent); transition: right .22s ease;
-  }
-  .nav-links a:hover { color: var(--ink); text-decoration: none; }
-  .nav-links a:hover::after { right: 0; }
-  #theme { background: none; border: 0; cursor: pointer; color: var(--muted); font: inherit; font-size: 15px; padding: 4px; line-height: 1; }
-  #theme:hover { color: var(--accent-ink); }
+/* cover */
+.cover { position: relative; height: clamp(480px, 84vh, 800px); display: grid; grid-template-columns: repeat(4, 1fr); overflow: hidden; -webkit-user-select: none; user-select: none; touch-action: pan-y; }
+.js .cover { cursor: crosshair; }
+.cover:focus-visible { outline-offset: -4px; }
+.field { position: relative; background: var(--f); }
+.field span { position: absolute; left: 14px; bottom: 12px; font: 11px var(--mono); color: rgba(255,255,255,.82); }
+.camo-vex, .camo-ghost { position: absolute; left: 0; top: 0; width: 230px; pointer-events: none; }
+.js .camo-vex, .camo-ghost { transition: transform .7s cubic-bezier(.3,.7,.2,1); }
+html:not(.js) .camo-vex { left: 30%; top: 36%; }
+.js .cover:not(.ready) .camo-vex { visibility: hidden; }
+.lens { position: absolute; inset: 0; pointer-events: none; -webkit-mask-image: radial-gradient(circle 86px at var(--mx, -999px) var(--my, -999px), #000 55%, transparent 100%); mask-image: radial-gradient(circle 86px at var(--mx, -999px) var(--my, -999px), #000 55%, transparent 100%); }
+.ring { position: absolute; left: 0; top: 0; width: 172px; height: 172px; margin: -86px 0 0 -86px; border: 1px solid rgba(255,255,255,.6); border-radius: 50%; pointer-events: none; transform: translate(var(--mx, -999px), var(--my, -999px)); }
+.cover-ui { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 24px 24px 40px; pointer-events: none; }
+.cover h1 { font: italic 400 clamp(46px, 7.4vw, 104px)/.92 var(--serif); margin: 0; color: #fff; letter-spacing: -.01em; }
+.pitch { margin-top: 14px; max-width: 34ch; font-size: clamp(17px, 1.5vw, 20px); line-height: 1.45; color: #fff; }
+.cover-foot { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.cover-foot > * { pointer-events: auto; background: #000; }
+.find { display: flex; align-items: center; flex-wrap: wrap; max-width: 600px; }
+.find p { padding: 7px 12px; font: 13px/1.45 var(--mono); color: #fff; }
+.find .btn { margin: 0 0 0 auto; }
+.pin { display: flex; align-items: center; }
+.pin code { padding: 7px 12px; font-size: 13px; }
 
-  /* ---- hero ---- */
-  header { padding: 74px 0 8px; }
-  h1 {
-    font-family: var(--mono); font-weight: 600;
-    font-size: clamp(30px, 6vw, 52px); line-height: 1.07; letter-spacing: -.02em;
-    margin: 18px 0 0; text-wrap: balance; max-width: 15ch;
-  }
-  h1 .sw { color: var(--accent); }
-  h1 .cur {
-    display: inline-block; width: .58ch; height: .95em; background: var(--accent);
-    margin-left: .12ch; transform: translateY(.06em);
-  }
-  .lede { font-size: clamp(16px, 2.4vw, 19px); color: var(--muted); max-width: 56ch; margin: 22px 0 0; line-height: 1.55; }
-  .lede b { color: var(--ink); font-weight: 600; }
+/* plates */
+main { max-width: 1200px; margin: 0 auto; padding: 0 28px; }
+.plate { padding: 76px 0 8px; }
+.plate + .plate { border-top: 1px solid var(--line); margin-top: 64px; }
+.plate h2 { font: 400 clamp(38px, 4.8vw, 60px)/1 var(--serif); margin: 0; color: #fff; }
+.plate h2 .n { font-style: italic; color: var(--soft); margin-right: .3em; }
+.lede { margin: 12px 0 28px; max-width: 64ch; color: var(--soft); font-size: 18px; }
+.caption { font: 13px/1.55 var(--mono); color: var(--text); min-height: 1.55em; margin: 16px 0 10px; overflow-wrap: anywhere; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
-  .cta { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 18px; margin-top: 32px; }
-  .copybox {
-    display: inline-flex; align-items: center; gap: 12px; max-width: 100%;
-    background: var(--raise); border: 1px solid var(--line-strong); border-radius: 8px;
-    padding: 11px 12px 11px 16px; font-family: var(--mono); font-size: 14px;
-    box-shadow: var(--shadow); transition: border-color .18s, transform .18s;
-  }
-  .copybox:hover { border-color: color-mix(in srgb, var(--accent) 50%, var(--line-strong)); }
-  .copybox .prompt { color: var(--faint); flex: none; }
-  .copybox code { color: var(--ink); white-space: nowrap; overflow-x: auto; min-width: 0; scrollbar-width: none; }
-  .copybox code::-webkit-scrollbar { display: none; }
-  .copybtn {
-    flex: none; font-family: var(--mono); font-size: 11px; letter-spacing: .04em; text-transform: uppercase;
-    border: 1px solid var(--line-strong); background: transparent; color: var(--muted);
-    border-radius: 5px; padding: 5px 9px; cursor: pointer; transition: color .15s, border-color .15s;
-  }
-  .copybtn:hover { color: var(--ink); border-color: var(--muted); }
-  .copybtn.done { color: var(--ok); border-color: var(--ok); }
-  .ghost { font-family: var(--mono); font-size: 14px; color: var(--muted); display: inline-flex; align-items: center; gap: 7px; }
-  .ghost:hover { color: var(--ink); text-decoration: none; }
-  .ghost .arw { color: var(--accent); transition: transform .18s; }
-  .ghost:hover .arw { transform: translateX(3px); }
+/* I specimen */
+.spec { position: relative; container-type: inline-size; margin: 0; }
+.spec-fig { display: block; width: 100%; height: auto; }
+.spec .lead { fill: none; stroke: #4a4a43; stroke-width: 1; }
+.spec .pin-dot { fill: #4a4a43; }
+.spec .lead.on { stroke: #fff; }
+.spec .pin-dot.on { fill: #fff; }
+.notes { list-style: none; margin: 0; padding: 0; }
+.notes li { color: var(--soft); line-height: 1.4; transition: opacity .15s; }
+.notes b { display: block; font: 600 .74em var(--mono); letter-spacing: .12em; color: #fff; margin-bottom: 3px; }
+.notes li.on { color: #fff; }
+.spec.focus .notes li:not(.on) { opacity: .45; }
+.spec figcaption { font-style: italic; color: var(--mute); text-align: center; margin-top: 28px; }
+@media (min-width: 701px) {
+  .notes li { position: absolute; left: calc(var(--x) * 100% / 960); top: calc(var(--y) * 100% / 420); width: calc(var(--w) * 100% / 960); font-size: clamp(11.5px, 1.5cqi, 15.5px); }
+  .notes li.l { text-align: right; }
+}
 
-  /* ---- terminal ---- */
-  .term-wrap { margin-block: 46px 0; }   /* no bottom clamp — next section owns the gap */
-  .terminal { background: var(--term-bg); border: 1px solid var(--line-strong); border-radius: 11px; box-shadow: var(--shadow); overflow: hidden; }
-  .term-bar { display: flex; align-items: center; gap: 13px; padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,.06); }
-  .dots { display: flex; gap: 7px; }
-  .dots i { width: 11px; height: 11px; border-radius: 50%; background: #2c353c; display: block; }
-  .term-title { font-family: var(--mono); font-size: 12px; color: var(--term-muted); }
-  .term-run { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 11px; color: var(--term-muted); }
-  .term-run i { width: 7px; height: 7px; border-radius: 50%; background: var(--term-ok); box-shadow: 0 0 0 0 color-mix(in srgb, var(--term-ok) 70%, transparent); }
-  .term-body { padding: 20px 20px 24px; font-family: var(--mono); font-size: 13.5px; line-height: 1.85; color: var(--term-ink); overflow-x: auto; }
-  .term-body .row { white-space: pre; }
-  .term-body .p { color: var(--term-muted); }
-  .term-body .cmd { color: var(--term-ink); }
-  .term-body .sw { color: var(--term-accent); }
-  .term-body .ok { color: var(--term-ok); }
-  .term-body .dim { color: var(--term-muted); }
-  .term-body .cur { display: inline-block; width: 8px; height: 1.05em; vertical-align: text-bottom; background: var(--term-accent); margin-left: 2px; }
+/* II habitat */
+.hab { position: relative; padding-top: 22px; touch-action: pan-y; }
+.hab:focus-visible { outline-offset: 6px; }
+.hab-fig { display: block; width: 100%; height: auto; overflow: visible; }
+.hab-fig .branch { fill: none; stroke: #3a3a35; stroke-width: 6; stroke-linecap: round; }
+.hab-fig .nub { fill: #3a3a35; }
+.walker { cursor: grab; }
+.dragging .walker { cursor: grabbing; }
+.hint { position: absolute; left: 12.5%; top: 0; transform: translateX(-50%); font: 12px var(--mono); color: var(--soft); pointer-events: none; transition: opacity .3s; }
+.hint.gone { opacity: 0; }
+.twigs { display: grid; grid-template-columns: repeat(4, 1fr); list-style: none; margin: 14px 0 0; padding: 0; text-align: center; font: 12.5px/1.4 var(--mono); }
+.twigs li { padding: 0 4px; }
+.js .twigs li { cursor: pointer; }
+.twigs .p { display: block; color: var(--soft); }
+.twigs .a { font-weight: 600; }
+.twigs .a.none { color: var(--mute); font-weight: 400; }
+.chip { background: #000; border: 1px solid var(--c); color: var(--c); font: 12px var(--mono); padding: 6px 10px; cursor: pointer; }
+.chip:hover { background: var(--c); color: #000; }
 
-  @media (prefers-reduced-motion: no-preference) {
-    .reveal .row { opacity: 0; transform: translateY(4px); animation: rise .42s cubic-bezier(.2,.7,.3,1) forwards; }
-    .cur { animation: blink 1.05s steps(1) infinite; }
-    .term-run i { animation: pulse 2s ease-out infinite; }
-    @keyframes rise { to { opacity: 1; transform: none; } }
-    @keyframes blink { 50% { opacity: 0; } }
-    @keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--term-ok) 60%, transparent); } 70% { box-shadow: 0 0 0 6px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
-  }
+/* III colony */
+.glass { list-style: none; margin: 16px 0 0; padding: 18px 24px 24px; border: 1px solid var(--line2); display: grid; grid-template-columns: repeat(4, 1fr); gap: 0 22px; cursor: pointer; }
+.glass li:nth-child(even) { margin-top: 60px; }
+.glass svg { width: 100%; height: auto; }
+.glass p { margin-top: 10px; font: 12px/1.5 var(--mono); color: var(--soft); }
+.glass p b { color: #fff; font-weight: 600; }
+.glass .bad { color: var(--alarm); }
 
-  /* ---- sections ---- */
-  section { padding: 62px 0; border-top: 1px solid var(--line); }
-  .term-wrap + section { border-top: 0; padding-top: 64px; }  /* kill the hard line right under the terminal */
-  .sec-head { max-width: 62ch; }
-  h2 { font-family: var(--mono); font-weight: 600; font-size: clamp(21px, 3.4vw, 27px); letter-spacing: -.01em; margin: 12px 0 0; text-wrap: balance; }
-  .sec-head p { color: var(--muted); font-size: 16.5px; max-width: 60ch; margin: 14px 0 0; }
-  .sec-head p b { color: var(--ink); font-weight: 600; }
+/* IV moods */
+.moods { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, 1fr); gap: 28px 18px; }
+.moods li { outline-offset: 6px; }
+.moods svg { width: 100%; height: auto; }
+.obs { margin-top: 8px; font: 12px/1.45 var(--mono); color: var(--soft); }
+.obs b { display: block; color: #fff; font-weight: 600; }
+.cli { margin-top: 8px; font: 11.5px/1.5 var(--mono); color: #fff; opacity: 0; transition: opacity .15s; overflow-wrap: anywhere; }
+.moods li:hover .cli, .moods li:focus .cli { opacity: 1; }
+@media (hover: none) { .cli { opacity: 1; } }
+.store { margin-top: 36px; max-width: 70ch; color: var(--soft); }
+.store b { color: #fff; font-weight: 500; }
 
-  /* ---- steps ---- */
-  .steps { display: grid; gap: 1px; margin-top: 34px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--line); }
-  .step { display: grid; grid-template-columns: 42px 1fr; gap: 20px; align-items: start; padding: 22px; background: var(--raise); transition: background .16s; }
-  .step:hover { background: color-mix(in srgb, var(--accent) 4%, var(--raise)); }
-  .step .n { font-family: var(--mono); font-size: 13px; color: var(--accent-ink); font-weight: 600; padding-top: 3px; font-variant-numeric: tabular-nums; }
-  .step h3 { margin: 0; font-family: var(--sans); font-size: 16px; font-weight: 600; }
-  .step p { margin: 5px 0 12px; color: var(--muted); font-size: 14.5px; }
-  .step .line { font-family: var(--mono); font-size: 13.5px; color: var(--ink); overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
-  .step .line::-webkit-scrollbar { display: none; }
-  .step .line .p { color: var(--faint); }
+/* V adopt + install */
+.field-in { display: grid; gap: 6px; max-width: 560px; }
+.field-in label { font: 12px var(--mono); color: var(--soft); }
+input { background: #0a0a0a; border: 1px solid var(--line2); color: #fff; font: 15px var(--mono); padding: 10px 12px; width: 100%; border-radius: 0; }
+.adopt-grid { list-style: none; margin: 26px 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 28px 22px; }
+.adopt-grid b { display: block; margin-top: 6px; font: 600 14px var(--mono); }
+.adopt-grid i { display: block; font: italic 15px/1.35 var(--text-serif); color: var(--soft); }
+.adopt-grid span { display: block; font: 11.5px var(--mono); color: var(--mute); }
+.adopt-grid .clash { color: var(--alarm); }
+.cmds { margin: 0 0 12px; padding: 2px 0 2px 14px; border-left: 1px solid var(--line2); font: 13.5px/1.75 var(--mono); color: #fff; white-space: pre-wrap; overflow-wrap: anywhere; }
+.plate h3 { font: 400 34px/1.1 var(--serif); color: #fff; margin: 64px 0 14px; }
+.tabs { display: flex; flex-wrap: wrap; border-bottom: 1px solid var(--line2); }
+[role="tab"] { background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; color: var(--soft); font: 13px var(--mono); padding: 9px 14px; cursor: pointer; }
+[role="tab"]:hover { color: #fff; }
+[role="tab"][aria-selected="true"] { color: #fff; border-bottom-color: #fff; }
+.cmd { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 14px 0; }
+.cmd code { font-size: 15px; overflow-wrap: anywhere; }
+.cmd code::before { content: "$ "; color: var(--mute); }
+.cmd .pm { font: 12px var(--mono); color: var(--mute); min-width: 80px; }
+.then { border-top: 1px solid var(--line); }
 
-  /* ---- install ---- */
-  .installs { display: grid; gap: 12px; margin-top: 30px; }
-  .inst { display: grid; grid-template-columns: 96px 1fr auto; align-items: center; gap: 16px;
-    border: 1px solid var(--line); border-radius: 9px; padding: 13px 14px 13px 18px; background: var(--raise);
-    transition: border-color .18s, transform .18s; }
-  .inst:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); transform: translateY(-1px); }
-  .inst .who { font-family: var(--mono); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-  .inst code { font-family: var(--mono); font-size: 14px; color: var(--ink); overflow-x: auto; min-width: 0; white-space: nowrap; scrollbar-width: none; }
-  .inst code::-webkit-scrollbar { display: none; }
+/* colophon */
+.colophon { max-width: 1200px; margin: 96px auto 0; padding: 0 28px 64px; }
+.colophon h2 { font: italic 400 34px/1 var(--serif); color: #fff; margin: 0 0 22px; padding-top: 40px; border-top: 1px solid var(--line); }
+.facts { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 20px 28px; }
+.facts dt { font: 12px var(--mono); color: var(--mute); }
+.facts dd { margin: 3px 0 0; font: 400 25px/1.15 var(--serif); color: #fff; }
+.links { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 36px; font: 13px var(--mono); color: var(--soft); }
 
-  /* ---- features ---- */
-  .feat { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; margin-top: 34px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
-  .f { background: var(--raise); padding: 22px 24px; transition: background .16s; }
-  .f:hover { background: color-mix(in srgb, var(--accent) 4%, var(--raise)); }
-  .f .t { font-family: var(--mono); font-size: 14px; font-weight: 600; color: var(--ink); display: flex; align-items: center; gap: 9px; }
-  .f .t .g { color: var(--accent); font-size: 15px; }
-  .f p { margin: 8px 0 0; color: var(--muted); font-size: 14px; line-height: 1.55; }
-
-  /* ---- footer ---- */
-  footer { border-top: 1px solid var(--line); padding: 40px 0 64px; }
-  .foot { display: flex; flex-wrap: wrap; gap: 12px 26px; align-items: center; justify-content: space-between; }
-  .foot .l { display: flex; flex-wrap: wrap; gap: 20px; font-family: var(--mono); font-size: 13px; }
-  .foot .l a { color: var(--muted); }
-  .foot .l a:hover { color: var(--ink); text-decoration: none; }
-  .foot .r { font-family: var(--mono); font-size: 12.5px; color: var(--faint); }
-
-  /* ---- mobile ---- */
-  @media (max-width: 680px) {
-    .feat { grid-template-columns: 1fr; }
-  }
-  @media (max-width: 620px) {
-    .inst { grid-template-columns: 1fr auto; padding: 13px 14px; }
-    .inst .who { grid-column: 1 / -1; margin-bottom: -4px; }
-  }
-  @media (max-width: 560px) {
-    .wrap { padding: 0 18px; }
-    header { padding: 48px 0 4px; }
-    h1 { font-size: clamp(27px, 9vw, 40px); }
-    .lede { font-size: 16px; margin-top: 18px; }
-    section { padding: 46px 0; }
-    .term-wrap + section { padding-top: 46px; }
-    .term-wrap { margin-block: 34px 0; }
-    .term-body { font-size: 12px; padding: 16px 16px 20px; line-height: 1.8; }
-    .term-title { font-size: 11px; }
-    .nav-links { gap: 15px; font-size: 12.5px; }
-    .nav-links a::after { display: none; }
-    .brand b { font-size: 15.5px; }
-    .cta { gap: 12px; }
-    .copybox { width: 100%; padding: 11px 11px 11px 14px; }
-    .ghost { font-size: 13.5px; }
-    .step { grid-template-columns: 28px 1fr; gap: 12px; padding: 18px 16px; }
-    .steps, .feat { border-radius: 9px; }
-    .f { padding: 20px; }
-    .foot { gap: 14px; }
-  }
-  @media (max-width: 380px) {
-    h1 { font-size: 25px; }
-    .brand .v { display: none; }
-  }
+@media (max-width: 960px) {
+  .moods { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 700px) {
+  main { padding: 0 18px; }
+  .bar { padding: 12px 18px; }
+  .cover { grid-template-columns: repeat(2, 1fr); grid-template-rows: 1fr 1fr; height: clamp(520px, 86vh, 700px); }
+  .camo-vex, .camo-ghost { width: 150px; }
+  .cover-ui { padding: 18px 16px 34px; }
+  .pin { width: 100%; }
+  .pin code { flex: 1; font-size: 12px; overflow-wrap: anywhere; }
+  .find { width: 100%; }
+  .plate { padding-top: 56px; }
+  .plate + .plate { margin-top: 48px; }
+  .spec-crop { overflow: hidden; }
+  .spec-fig { width: 192%; margin-left: -56%; }
+  .spec .leads { display: none; }
+  .notes { counter-reset: none; }
+  .notes li { margin: 14px 0; font-size: 16px; }
+  .spec figcaption { display: none; }
+  .twigs { font-size: 11px; }
+  .glass { grid-template-columns: repeat(3, 1fr); gap: 0 10px; padding: 12px 12px 16px; }
+  .glass li:nth-child(4) { display: none; }
+  .glass li:nth-child(even) { margin-top: 34px; }
+  .glass p { font-size: 11px; }
+  .adopt-grid { grid-template-columns: repeat(2, 1fr); gap: 22px 14px; }
+  .colophon { padding: 0 18px 56px; }
+}
+@media (max-width: 520px) {
+  .moods { grid-template-columns: repeat(2, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; scroll-behavior: auto !important; }
+}
 </style>
 </head>
 <body>
+<a class="skip" href="#install">Skip to install</a>
 
-<nav>
-  <div class="wrap nav-in">
-    <div class="brand"><b>cvx</b><span class="v mono">v0.20</span></div>
-    <div class="nav-links">
-      <a href="https://github.com/rafay99-epic/convex-switch">GitHub</a>
-      <a href="https://www.npmjs.com/package/@rafay99/cvx">npm</a>
-      <button id="theme" title="Toggle theme" aria-label="Toggle color theme">◐</button>
-    </div>
-  </div>
-</nav>
+<!-- Vex's body, shared by every rig. Colors arrive through CSS variables (--c, and the camo/ghost overrides). -->
+<svg class="defs" aria-hidden="true" focusable="false">
+  <defs>
+    <clipPath id="vx-clip"><path d="M16,95 C18,84 28,70 40,63 C50,56 62,48 74,43 C78,50 82,56 88,60 C104,46 130,38 152,42 C178,46 200,66 206,92 C208,106 198,116 184,119 C156,125 116,126 88,121 C66,118 44,114 30,108 C21,104 15,100 16,95 Z"/></clipPath>
+    <g id="vx">
+      <path d="M198,100 C204,101 209,102 214,102 A22,22 0 0 1 236,124 A17,17 0 0 1 202,124 A12,12 0 0 1 226,124 A7,7 0 0 1 212,124" style="fill:none;stroke:var(--limb,var(--c));stroke-width:var(--tw,5.5);stroke-linecap:round"/>
+      <path d="M100,116 C99,123 96,128 91,131 M85,138 L91,131 L98,138 M170,114 C172,121 176,127 180,131 M174,138 L180,131 L187,138" style="fill:none;stroke:var(--limb,var(--c));stroke-width:var(--lw,6.5);stroke-linecap:round;stroke-linejoin:round"/>
+      <path d="M16,95 C18,84 28,70 40,63 C50,56 62,48 74,43 C78,50 82,56 88,60 C104,46 130,38 152,42 C178,46 200,66 206,92 C208,106 198,116 184,119 C156,125 116,126 88,121 C66,118 44,114 30,108 C21,104 15,100 16,95 Z" style="fill:var(--fill,var(--c));stroke:var(--edge,rgba(0,0,0,.35));stroke-width:var(--ew,1.5)"/>
+      <path d="M114,30 C120,70 120,100 114,130 M140,30 C146,70 146,100 140,130 M166,36 C172,72 172,100 166,130" clip-path="url(#vx-clip)" style="fill:none;stroke:var(--band,rgba(0,0,0,.16));stroke-width:var(--bw,8)"/>
+      <path d="M42,65 C56,58 72,55 88,60" style="fill:none;stroke:var(--ln,rgba(0,0,0,.34));stroke-width:var(--lnw,2);stroke-linecap:round"/>
+      <circle cx="50" cy="80" r="13" style="fill:var(--fill,var(--c));stroke:var(--edge,rgba(0,0,0,.4));stroke-width:var(--ew,1.5)"/>
+      <circle cx="50" cy="80" r="8.5" style="fill:none;stroke:var(--ln,rgba(0,0,0,.34));stroke-width:var(--lnw,1.5)"/>
+    </g>
+  </defs>
+</svg>
 
-<header>
-  <div class="wrap">
-    <span class="eyebrow">Convex Switch</span>
-    <h1>One terminal.<br>Every Convex <span class="sw">account</span>.<span class="cur" aria-hidden="true"></span></h1>
-    <p class="lede">The Convex CLI remembers a single login. <b>cvx</b> binds each project to its own
-      account and switches for you the moment you <b>cd</b> in — no logout/login churn,
-      no deploy keys, no tokens in your repos.</p>
-
-    <div class="cta">
-      <div class="copybox" data-copy="brew install rafay99-epic/apps/cvx">
-        <span class="prompt">$</span>
-        <code>brew install rafay99-epic/apps/cvx</code>
-        <button class="copybtn" aria-label="Copy install command">copy</button>
-      </div>
-      <a class="ghost" href="https://github.com/rafay99-epic/convex-switch">Read the source <span class="arw">→</span></a>
-    </div>
-  </div>
+<header class="bar">
+  <a class="word" href="#top" aria-label="cvx, home">cvx<span aria-hidden="true">~@</span></a>
+  <nav aria-label="Project">
+    <a href="https://github.com/rafay99-epic/cvx">GitHub</a>
+    <a href="https://www.npmjs.com/package/@rafay99/cvx">npm</a>
+  </nav>
 </header>
 
-<div class="wrap term-wrap">
-  <div class="terminal">
-    <div class="term-bar">
-      <span class="dots"><i></i><i></i><i></i></span>
-      <span class="term-title">zsh — ~/code</span>
-      <span class="term-run"><i></i> live</span>
-    </div>
-    <div class="term-body reveal" id="term">
-      <div class="row"><span class="p">~/code/app-a</span>  <span class="dim">⇄ personal</span></div>
-      <div class="row"><span class="p">$</span> <span class="cmd">cd ../billing-service</span></div>
-      <div class="row"><span class="sw">⇄ convex account → work</span>  <span class="dim">(syntax-technology)</span></div>
-      <div class="row"><span class="p">$</span> <span class="cmd">bun run dev</span></div>
-      <div class="row"><span class="dim">  convex dev · deployment: work · ready in 0.8s</span> <span class="ok">✓</span></div>
-      <div class="row"><span class="p">$</span> <span class="cur"></span></div>
-    </div>
+<section class="cover" id="top" aria-labelledby="cover-title">
+  <div class="field" style="--f:#005a6b"><span>personal</span></div>
+  <div class="field" style="--f:#4a396b"><span>work</span></div>
+  <div class="field" style="--f:#6b4a00"><span>client</span></div>
+  <div class="field" style="--f:#6b396b"><span>acme</span></div>
+  <div class="camo-vex" id="camo-vex">
+    <svg class="vex-rig m-wink" viewBox="0 0 240 160" style="--c:#af87ff" role="img" aria-label="Vex, sitting on a colored field"><g class="skin"><use href="#vx"/></g><path class="mouth" d="M18,97 C32,104 48,106 64,100"/><path class="lid" d="M39,78 C44,85 56,85 61,78"/></svg>
   </div>
-</div>
-
-<section>
-  <div class="wrap">
-    <div class="sec-head">
-      <span class="eyebrow">The problem</span>
-      <h2>Convex remembers one login. You have more than one.</h2>
-      <p>Every <span class="mono">convex</span> command reads your identity from a single global file —
-        <span class="mono">~/.convex/config.json</span>. Juggling a personal account, a work account and a
-        client's means constant <span class="mono">convex logout</span> / <span class="mono">login</span>,
-        and you can never run two accounts' projects at the same time.</p>
-      <p style="margin-top:14px"><b>cvx keeps a private vault of your account tokens and a map of project → account</b>,
-        then rewrites that one file to the right account as you move between folders. Because a running
-        <span class="mono">convex dev</span> keeps its own credentials, you can start five or six at once —
-        each on a different account, side by side.</p>
+  <div class="lens" id="camo-lens" aria-hidden="true" data-js><div class="camo-ghost" id="camo-ghost"></div></div>
+  <div class="ring" aria-hidden="true" data-js></div>
+  <div class="cover-ui">
+    <div>
+      <h1 id="cover-title">Chamaeleo convexus</h1>
+      <p class="pitch">cvx switches your Convex account as you cd into each project, and every terminal keeps its own.</p>
     </div>
-  </div>
-</section>
-
-<section>
-  <div class="wrap">
-    <div class="sec-head">
-      <span class="eyebrow">Setup</span>
-      <h2>Three commands, then never again.</h2>
-      <p>Do this once per account and once per project. After that, <span class="mono">cd</span> is the only
-        command you need.</p>
-    </div>
-    <div class="steps">
-      <div class="step">
-        <div class="n">01</div>
-        <div>
-          <h3>Sign in to each account</h3>
-          <p>Opens a browser login and stores the token in your vault — verified against Convex, named by you.</p>
-          <div class="line"><span class="p">$</span> cvx login <span class="p">personal</span> &nbsp;·&nbsp; cvx login <span class="p">work</span></div>
-        </div>
+    <div class="cover-foot">
+      <div class="find">
+        <p id="camo-cap" aria-live="polite">Can you spot her? She hides on one of four accounts.</p>
+        <button class="btn ghost" id="camo-hide" type="button" hidden>hide her again</button>
       </div>
-      <div class="step">
-        <div class="n">02</div>
-        <div>
-          <h3>Bind a project to an account</h3>
-          <p>One account can own many projects. Nothing is written into the repo — the binding lives in the vault.</p>
-          <div class="line"><span class="p">$</span> cd ~/code/app-a &amp;&amp; cvx link <span class="p">personal</span></div>
-        </div>
-      </div>
-      <div class="step">
-        <div class="n">03</div>
-        <div>
-          <h3>Install the shell hook</h3>
-          <p>Auto-detects your shell — zsh, bash or PowerShell — and wires the switch into <span class="mono">cd</span>.</p>
-          <div class="line"><span class="p">$</span> cvx hook --install</div>
-        </div>
+      <div class="pin">
+        <code>brew install rafay99-epic/apps/cvx</code>
+        <button class="btn" type="button" data-copy="brew install rafay99-epic/apps/cvx" data-js>copy</button>
       </div>
     </div>
   </div>
 </section>
 
-<section>
-  <div class="wrap">
-    <div class="sec-head">
-      <span class="eyebrow">Install</span>
-      <h2>Grab the binary from wherever you live.</h2>
-      <p>A single self-contained binary — macOS, Linux and Windows. Same <span class="mono">cvx</span> command everywhere.</p>
-    </div>
-    <div class="installs">
-      <div class="inst" data-copy="brew install rafay99-epic/apps/cvx">
-        <span class="who">Homebrew</span><code>brew install rafay99-epic/apps/cvx</code>
-        <button class="copybtn" aria-label="Copy">copy</button>
+<main>
+  <section class="plate" id="specimen" aria-labelledby="h-spec">
+    <h2 id="h-spec"><span class="n">I</span>Specimen</h2>
+    <p class="lede">Other mascots watch your cursor. Vex watches your working directory. Each field mark is a feature.</p>
+    <figure class="spec" id="spec">
+      <div class="spec-crop">
+        <svg class="spec-fig" viewBox="0 0 960 420" role="img" aria-label="Vex perched on a branch, with six field marks pointing at her casque, eye, mouth, feet, skin and tail">
+          <g class="leads">
+            <path class="lead" d="M262,29 L286,29 L442,128"/><circle class="pin-dot" cx="442" cy="128" r="3.2"/>
+            <path class="lead" d="M262,129 L286,129 L396,193"/><circle class="pin-dot" cx="396" cy="193" r="3.2"/>
+            <path class="lead" d="M262,231 L286,231 L334,226"/><circle class="pin-dot" cx="334" cy="226" r="3.2"/>
+            <path class="lead" d="M262,327 L286,327 L474,297"/><circle class="pin-dot" cx="474" cy="297" r="3.2"/>
+            <path class="lead" d="M698,49 L674,49 L568,155"/><circle class="pin-dot" cx="568" cy="155" r="3.2"/>
+            <path class="lead" d="M778,271 L754,271 L720,278"/><circle class="pin-dot" cx="720" cy="278" r="3.2"/>
+          </g>
+          <svg x="300" y="40" width="460" height="306.67" viewBox="0 0 240 160" class="vex-rig m-happy" id="spec-rig" style="--c:#00d7ff" aria-hidden="true"><path class="twig" d="M-6,135 C60,131 150,139 246,132"/><g class="skin"><use href="#vx"/></g><path class="mouth" d="M18,97 C32,104 48,106 64,100"/><g class="pupil"><circle class="pupil-dot" cx="50" cy="80" r="4"/><circle class="glint" cx="51.6" cy="78.4" r="1.4"/></g></svg>
+        </svg>
       </div>
-      <div class="inst" data-copy="npm install -g @rafay99/cvx">
-        <span class="who">npm</span><code>npm install -g @rafay99/cvx</code>
-        <button class="copybtn" aria-label="Copy">copy</button>
-      </div>
-      <div class="inst" data-copy="bun add -g @rafay99/cvx">
-        <span class="who">Bun</span><code>bun add -g @rafay99/cvx</code>
-        <button class="copybtn" aria-label="Copy">copy</button>
-      </div>
-      <div class="inst" data-copy="pnpm add -g @rafay99/cvx">
-        <span class="who">pnpm</span><code>pnpm add -g @rafay99/cvx</code>
-        <button class="copybtn" aria-label="Copy">copy</button>
-      </div>
-    </div>
-  </div>
-</section>
+      <ol class="notes" id="notes">
+        <li class="l" style="--x:0;--y:20;--w:250"><b>I. CASQUE</b>Holds the vault: one token per account in ~/.convex-switch, mode 600.</li>
+        <li class="l" style="--x:0;--y:120;--w:250"><b>II. TURRET EYE</b>Watches your working directory. The shell hook asks her on every cd.</li>
+        <li class="l" style="--x:0;--y:222;--w:250"><b>III. REFLEX</b>cd to switch in about 23 ms. No network on the way.</li>
+        <li class="l" style="--x:0;--y:318;--w:250"><b>IV. FEET</b>Grip one branch: a linked folder. Nested folders inherit the grip.</li>
+        <li style="--x:710;--y:40;--w:250"><b>V. SKIN</b>The active account's color, the same one your terminal shows.</li>
+        <li style="--x:790;--y:262;--w:170"><b>VI. TAIL, THE @</b>One session. Each terminal holds its own token, so parallel terminals never fight.</li>
+      </ol>
+      <figcaption>Chamaeleo convexus, adult, perched. Plate I.</figcaption>
+    </figure>
+  </section>
 
-<section>
-  <div class="wrap">
-    <div class="sec-head">
-      <span class="eyebrow">What you get</span>
-      <h2>Small utility, no surprises.</h2>
+  <section class="plate" id="habitat" aria-labelledby="h-hab">
+    <h2 id="h-hab"><span class="n">II</span>Habitat</h2>
+    <p class="lede">Your projects are twigs on one branch. Wherever she grips, she takes that folder's account. On an unlinked twig she asks which one.</p>
+    <div class="hab" id="hab">
+      <svg class="hab-fig" viewBox="0 50 900 120" aria-hidden="true">
+        <path class="branch" d="M0,150 C300,144 600,156 900,148"/>
+        <circle class="nub" cx="112.5" cy="148" r="4"/><circle class="nub" cx="337.5" cy="149" r="4"/><circle class="nub" cx="562.5" cy="151" r="4"/><circle class="nub" cx="787.5" cy="150" r="4"/>
+        <g class="walker" id="walker" transform="translate(28.1,0)">
+          <svg x="0" y="66.25" width="150" height="100" viewBox="0 0 240 160" class="vex-rig m-happy" id="hab-rig" style="--c:#00d7ff"><g class="skin"><use href="#vx"/></g><path class="mouth" d="M18,97 C32,104 48,106 64,100"/><g class="pupil" transform="translate(0,4.6)"><circle class="pupil-dot" cx="50" cy="80" r="4"/><circle class="glint" cx="51.6" cy="78.4" r="1.4"/></g></svg>
+        </g>
+      </svg>
+      <span class="hint" id="hab-hint" aria-hidden="true" data-js>&larr; drag me &rarr;</span>
     </div>
-    <div class="feat">
-      <div class="f">
-        <div class="t"><span class="g">⇄</span> Automatic on cd</div>
-        <p>A shell hook activates the linked account the moment you enter a project. Plain <span class="mono">bun run dev</span> just works.</p>
-      </div>
-      <div class="f">
-        <div class="t"><span class="g">∥</span> Truly simultaneous</div>
-        <p>Each running dev server keeps its own credentials — start five or six accounts across five or six terminals.</p>
-      </div>
-      <div class="f">
-        <div class="t"><span class="g">◆</span> Nothing in your repos</div>
-        <p>No deploy keys, no <span class="mono">.env.local</span> tokens. Credentials stay in a private vault, chmod&nbsp;600.</p>
-      </div>
-      <div class="f">
-        <div class="t"><span class="g">▚</span> Every shell, every OS</div>
-        <p>zsh, bash and PowerShell on macOS, Linux and Windows. One prebuilt binary per platform.</p>
-      </div>
-      <div class="f">
-        <div class="t"><span class="g">✓</span> Honest about state</div>
-        <p><span class="mono">cvx doctor</span> checks your setup; <span class="mono">cvx status</span> and <span class="mono">ls</span> show exactly what's active where.</p>
-      </div>
-      <div class="f">
-        <div class="t"><span class="g">↺</span> Reversible</div>
-        <p><span class="mono">unlink</span>, re-point, or <span class="mono">rm</span> an account anytime. It only ever touches one config file.</p>
-      </div>
-    </div>
-  </div>
-</section>
+    <ol class="twigs" id="twigs">
+      <li><span class="p">~/code/<wbr>web</span><span class="a" style="color:#00d7ff">personal</span></li>
+      <li><span class="p">~/code/<wbr>billing</span><span class="a" style="color:#af87ff">work</span></li>
+      <li><span class="p">~/clients/<wbr>atlas</span><span class="a" style="color:#ffaf00">client</span></li>
+      <li><span class="p">~/scratch</span><span class="a none">not linked</span></li>
+    </ol>
+    <p class="caption" id="hab-cap" aria-live="polite">cd ~/code/web &rarr; personal. This terminal now exports its own token.</p>
+    <div class="row" id="hab-pick"></div>
+  </section>
 
-<footer>
-  <div class="wrap foot">
-    <div class="l">
-      <a href="https://github.com/rafay99-epic/convex-switch">GitHub</a>
-      <a href="https://www.npmjs.com/package/@rafay99/cvx">npm</a>
-      <a href="https://github.com/rafay99-epic/convex-switch#readme">Docs</a>
-      <a href="https://rafay99.com">rafay99.com</a>
+  <section class="plate" id="colony" aria-labelledby="h-col">
+    <h2 id="h-col"><span class="n">III</span>Colony</h2>
+    <p class="lede">One Vex per terminal, each on her own branch, all at once. Without cvx they share one global login. Tap the glass and each looks for herself.</p>
+    <div class="row" role="group" aria-label="Compare" data-js>
+      <button class="btn ghost" type="button" id="col-with" aria-pressed="true">with cvx</button>
+      <button class="btn ghost" type="button" id="col-without" aria-pressed="false">without cvx</button>
     </div>
-    <div class="r">MIT · built by Abdul Rafay</div>
-  </div>
+    <ul class="glass" id="glass" aria-label="Four terminals">
+      <li><svg class="vex-rig m-happy" viewBox="0 0 240 160" style="--c:#00d7ff" aria-hidden="true"><path class="twig" d="M-6,135 C60,131 150,139 246,132"/><g class="skin"><use href="#vx"/></g><path class="mouth" d="M18,97 C32,104 48,106 64,100"/><g class="pupil"><circle class="pupil-dot" cx="50" cy="80" r="4"/><circle class="glint" cx="51.6" cy="78.4" r="1.4"/></g></svg><p><b>tty1</b> <span>personal &#x2713;</span></p></li>
+      <li><svg class="vex-rig m-happy" viewBox="0 0 240 160" style="--c:#af87ff" aria-hidden="true"><path class="twig" d="M-6,135 C60,131 150,139 246,132"/><g class="skin"><use href="#vx"/></g><path class="mouth" d="M18,97 C32,104 48,106 64,100"/><g class="pupil"><circle class="pupil-dot" cx="50" cy="80" r="4"/><circle class="glint" cx="51.6" cy="78.4" r="1.4"/></g></svg><p><b>tty2</b> <span>work &#x2713;</span></p></li>
+      <li><svg class="vex-rig m-happy" viewBox="0 0 240 160" style="--c:#ffaf00" aria-hidden="true"><path class="twig" d="M-6,135 C60,131 150,139 246,132"/><g class="skin"><use href="#vx"/></g><path class="mouth" d="M18,97 C32,104 48,106 64,100"/><g class="pupil"><circle class="pupil-dot" cx="50" cy="80" r="4"/><circle class="glint" cx="51.6" cy="78.4" r="1.4"/></g></svg><p><b>tty3</b> <span>client &#x2713;</span></p></li>
+      <li><svg class="vex-rig m-happy" viewBox="0 0 240 160" style="--c:#ff87ff" aria-hidden="true"><path class="twig" d="M-6,135 C60,131 150,139 246,132"/><g class="skin"><use href="#vx"/></g><path class="mouth" d="M18,97 C32,104 48,106 64,100"/><g class="pupil"><circle class="pupil-dot" cx="50" cy="80" r="4"/><circle class="glint" cx="51.6" cy="78.4" r="1.4"/></g></svg><p><b>tty4</b> <span>acme &#x2713;</span></p></li>
+    </ul>
+    <p class="caption" id="col-cap" aria-live="polite">With cvx: every terminal holds its own account, at the same time. Each tail is its own session token.</p>
+  </section>
+
+  <section class="plate" id="moods" aria-labelledby="h-moods">
+    <h2 id="h-moods"><span class="n">IV</span>Moods, observed</h2>
+    <p class="lede">Six moods, each one a real line from the CLI. Hover or focus a specimen to read it.</p>
+    <ol class="moods">
+      <li tabindex="0">
+        <svg class="vex-rig m-happy" viewBox="0 0 240 160" style="--c:#af87ff" role="img" aria-label="Vex, happy"><g class="skin"><use href="#vx"/></g><path class="mouth" d="M18,97 C32,104 48,106 64,100"/><g class="pupil"><circle class="pupil-dot" cx="50" cy="80" r="4"/><circle class="glint" cx="51.6" cy="78.4" r="1.4"/></g></svg>
+        <p class="obs"><b>happy</b>09:02, after cd into billing</p>
+        <p class="cli">&#x21C4; convex account &rarr; work</p>
+      </li>
+      <li tabindex="0">
+        <svg class="vex-rig m-wink" viewBox="0 0 240 160" style="--c:#00d7ff" role="img" aria-label="Vex, winking"><g class="skin"><use href="#vx"/></g><path class="mouth" d="M18,97 C32,104 48,106 64,100"/><path class="lid" d="M39,78 C44,85 56,85 61,78"/></svg>
+        <p class="obs"><b>wink</b>09:40, doctor finds nothing wrong</p>
+        <p class="cli">Everything looks good. ~ Vex approves (&#x25D5;&#x203F;&lt;)~@ ~</p>
+      </li>
+      <li tabindex="0">
+        <svg class="vex-rig m-curious" viewBox="0 0 240 160" style="--c:#87d787" role="img" aria-label="Vex, curious, in her resting green"><g class="skin"><use href="#vx"/></g><path class="mouth" d="M18,98 C32,100 48,102 64,101"/><g class="pupil"><circle class="pupil-dot" cx="50" cy="80" r="3"/><circle class="glint" cx="51.6" cy="78.4" r="1.4"/></g><text class="mark" x="84" y="34">?</text></svg>
+        <p class="obs"><b>curious</b>10:15, an unlinked folder</p>
+        <p class="cli">This directory isn't linked to an account.</p>
+      </li>
+      <li tabindex="0">
+        <svg class="vex-rig m-alarm" viewBox="0 0 240 160" style="--c:#ffaf00" role="img" aria-label="Vex, alarmed"><g class="skin"><use href="#vx"/></g><path class="mouth" d="M18,97 C26,110 44,112 60,102"/><g class="pupil"><circle class="pupil-dot" cx="50" cy="80" r="1.8"/><circle class="glint" cx="51.6" cy="78.4" r="1.4"/></g><text class="mark" x="84" y="34">!</text></svg>
+        <p class="obs"><b>alarm</b>11:03, deployment owned by another team</p>
+        <p class="cli">&#x25B2; team mismatch: this project's deployment belongs to acme-labs</p>
+      </li>
+      <li tabindex="0">
+        <svg class="vex-rig m-sleepy" viewBox="0 0 240 160" style="--c:#ff87ff" role="img" aria-label="Vex, asleep"><g class="skin"><use href="#vx"/></g><path class="mouth" d="M18,98 C32,100 48,102 64,101"/><path class="lid" d="M39,81 C44,78 56,78 61,81"/><text class="mark" x="84" y="34">z</text></svg>
+        <p class="obs"><b>sleepy</b>13:30, the vault is locked</p>
+        <p class="cli">&#x26BF; vault locked: run cvx vault unlock to switch to work</p>
+      </li>
+      <li tabindex="0">
+        <svg class="vex-rig m-sad" viewBox="0 0 240 160" style="--c:#af87ff" role="img" aria-label="Vex, sad"><g class="skin"><use href="#vx"/></g><path class="mouth" d="M18,101 C32,95 48,95 64,101"/><g class="pupil" transform="translate(0,4.6)"><circle class="pupil-dot" cx="50" cy="80" r="4"/><circle class="glint" cx="51.6" cy="78.4" r="1.4"/></g></svg>
+        <p class="obs"><b>sad</b>17:55, an account removed</p>
+        <p class="cli">&#x2713; Removed account work &middot; cvx undo restores it</p>
+      </li>
+    </ol>
+    <p class="store"><b>A note on the casque.</b> The default file vault keeps tokens in plaintext, readable only by you (mode 600). For encryption, use the OS keychain (<code>cvx keychain enable</code>) or the passphrase vault (<code>cvx vault encrypt</code>).</p>
+  </section>
+
+  <section class="plate" id="adopt" aria-labelledby="h-adopt">
+    <h2 id="h-adopt"><span class="n">V</span>Adopt</h2>
+    <p class="lede">Type your account names and meet your Vexes. Colors are handed out in order, so your first eight accounts never share one.</p>
+    <div class="field-in" data-js>
+      <label for="adopt-in">Account names, comma separated</label>
+      <input id="adopt-in" value="personal, work, client, acme" spellcheck="false" autocomplete="off" autocapitalize="off">
+    </div>
+    <ul class="adopt-grid" id="adopt-grid">
+      <li><svg class="vex-rig m-happy" viewBox="0 0 240 160" style="--c:#00d7ff" role="img" aria-label="Vex for personal"><path class="twig" d="M-6,135 C60,131 150,139 246,132"/><g class="skin"><use href="#vx"/></g><path class="mouth" d="M18,97 C32,104 48,106 64,100"/><g class="pupil"><circle class="pupil-dot" cx="50" cy="80" r="4"/><circle class="glint" cx="51.6" cy="78.4" r="1.4"/></g></svg><b style="color:#00d7ff">personal</b><i>C. convexus var. personal</i><span>ansi 45 &middot; #00d7ff</span></li>
+      <li><svg class="vex-rig m-happy" viewBox="0 0 240 160" style="--c:#af87ff" role="img" aria-label="Vex for work"><path class="twig" d="M-6,135 C60,131 150,139 246,132"/><g class="skin"><use href="#vx"/></g><path class="mouth" d="M18,97 C32,104 48,106 64,100"/><g class="pupil"><circle class="pupil-dot" cx="50" cy="80" r="4"/><circle class="glint" cx="51.6" cy="78.4" r="1.4"/></g></svg><b style="color:#af87ff">work</b><i>C. convexus var. work</i><span>ansi 141 &middot; #af87ff</span></li>
+      <li><svg class="vex-rig m-happy" viewBox="0 0 240 160" style="--c:#ffaf00" role="img" aria-label="Vex for client"><path class="twig" d="M-6,135 C60,131 150,139 246,132"/><g class="skin"><use href="#vx"/></g><path class="mouth" d="M18,97 C32,104 48,106 64,100"/><g class="pupil"><circle class="pupil-dot" cx="50" cy="80" r="4"/><circle class="glint" cx="51.6" cy="78.4" r="1.4"/></g></svg><b style="color:#ffaf00">client</b><i>C. convexus var. client</i><span>ansi 214 &middot; #ffaf00</span></li>
+      <li><svg class="vex-rig m-happy" viewBox="0 0 240 160" style="--c:#ff87ff" role="img" aria-label="Vex for acme"><path class="twig" d="M-6,135 C60,131 150,139 246,132"/><g class="skin"><use href="#vx"/></g><path class="mouth" d="M18,97 C32,104 48,106 64,100"/><g class="pupil"><circle class="pupil-dot" cx="50" cy="80" r="4"/><circle class="glint" cx="51.6" cy="78.4" r="1.4"/></g></svg><b style="color:#ff87ff">acme</b><i>C. convexus var. acme</i><span>ansi 213 &middot; #ff87ff</span></li>
+    </ul>
+    <pre class="cmds" id="adopt-cmds">cvx login personal
+cvx login work
+cvx login client
+cvx login acme</pre>
+    <div class="row" data-js>
+      <button class="btn ghost" type="button" id="adopt-copy">copy commands</button>
+      <p class="caption" id="adopt-cap" aria-live="polite"></p>
+    </div>
+
+    <h3 id="install">Install</h3>
+    <div class="tabs" role="tablist" aria-label="Install with" data-js>
+      <button role="tab" type="button" id="t-brew" aria-controls="p-brew" aria-selected="true">Homebrew</button>
+      <button role="tab" type="button" id="t-npm" aria-controls="p-npm" aria-selected="false" tabindex="-1">npm</button>
+      <button role="tab" type="button" id="t-bun" aria-controls="p-bun" aria-selected="false" tabindex="-1">Bun</button>
+      <button role="tab" type="button" id="t-pnpm" aria-controls="p-pnpm" aria-selected="false" tabindex="-1">pnpm</button>
+    </div>
+    <div class="cmd" role="tabpanel" id="p-brew" aria-labelledby="t-brew"><span class="pm" data-nojs>Homebrew</span><code>brew install rafay99-epic/apps/cvx</code><button class="btn ghost" type="button" data-copy="brew install rafay99-epic/apps/cvx" data-js>copy</button></div>
+    <div class="cmd" role="tabpanel" id="p-npm" aria-labelledby="t-npm"><span class="pm" data-nojs>npm</span><code>npm install -g @rafay99/cvx</code><button class="btn ghost" type="button" data-copy="npm install -g @rafay99/cvx" data-js>copy</button></div>
+    <div class="cmd" role="tabpanel" id="p-bun" aria-labelledby="t-bun"><span class="pm" data-nojs>Bun</span><code>bun add -g @rafay99/cvx</code><button class="btn ghost" type="button" data-copy="bun add -g @rafay99/cvx" data-js>copy</button></div>
+    <div class="cmd" role="tabpanel" id="p-pnpm" aria-labelledby="t-pnpm"><span class="pm" data-nojs>pnpm</span><code>pnpm add -g @rafay99/cvx</code><button class="btn ghost" type="button" data-copy="pnpm add -g @rafay99/cvx" data-js>copy</button></div>
+    <div class="cmd then"><span class="pm">then, once</span><code>cvx hook --install</code><button class="btn ghost" type="button" data-copy="cvx hook --install" data-js>copy</button></div>
+  </section>
+</main>
+
+<footer class="colophon" aria-labelledby="h-colo">
+  <h2 id="h-colo">Colophon</h2>
+  <dl class="facts">
+    <div><dt>cd to switch</dt><dd>23 ms</dd></div>
+    <div><dt>Weight</dt><dd>one binary</dd></div>
+    <div><dt>Habitat</dt><dd>macOS, Linux, Windows</dd></div>
+    <div><dt>Shells</dt><dd>zsh, bash, fish, PowerShell</dd></div>
+    <div><dt>Latest</dt><dd id="ver">on npm</dd></div>
+  </dl>
+  <p class="links">
+    <a href="https://github.com/rafay99-epic/cvx">GitHub</a>
+    <a href="https://www.npmjs.com/package/@rafay99/cvx">npm</a>
+    <a href="https://rafay99.com">rafay99.com</a>
+    <span>MIT</span>
+    <span>built by Abdul Rafay</span>
+  </p>
 </footer>
 
-<script>
-  (function () {
-    var root = document.documentElement;
-    document.getElementById("theme").addEventListener("click", function () {
-      var cur = root.getAttribute("data-theme");
-      if (!cur) cur = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-      root.setAttribute("data-theme", cur === "dark" ? "light" : "dark");
-    });
-
-    function wire(el) {
-      var btn = el.querySelector(".copybtn");
-      if (!btn) return;
-      btn.addEventListener("click", function () {
-        var text = el.getAttribute("data-copy");
-        if (!navigator.clipboard) return;
-        navigator.clipboard.writeText(text).then(function () {
-          var old = btn.textContent;
-          btn.textContent = "copied"; btn.classList.add("done");
-          setTimeout(function () { btn.textContent = old; btn.classList.remove("done"); }, 1400);
-        });
-      });
-    }
-    document.querySelectorAll("[data-copy]").forEach(wire);
-
-    var rows = document.querySelectorAll("#term .row");
-    rows.forEach(function (r, i) { r.style.animationDelay = (0.15 + i * 0.28) + "s"; });
-  })();
-</script>
+<p class="sr" id="sr-status" aria-live="polite"></p>
+<script src="vex.js" defer></script>
+<script src="plates.js" defer></script>
 </body>
 </html>
