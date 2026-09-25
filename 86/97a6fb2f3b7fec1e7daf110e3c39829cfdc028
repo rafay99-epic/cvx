@@ -1,0 +1,28 @@
+site/plates.js
+  s_5041edcd530b23::t_f522881d42f338 1-387
+  s_5041edcd530b23::t_6f78347eec3c2d 388-394
+site/vex.js
+  s_5041edcd530b23::t_42ad244457105f 1-145
+  s_5041edcd530b23::t_aac97eb1f3d76d 146
+site/index.html
+  s_5041edcd530b23::t_38a6b3425504d2 6-25,27-50,52-55,57-76,78-84,86-107,109-117,119-135,137-154,156-162,164-174,176-195,197-203,205-238,242,244-258,260-265,268-274,276-281,283-286,288-290,296-312,314-324,326-337,339-354,356-401,403-422,425-438,440-454
+  s_5041edcd530b23::t_d988ac58d27c1d 455-456,458-460
+tests/site.test.ts
+  s_5041edcd530b23::t_1c3f7407a350e8 1-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "8697a6fb2f3b7fec1e7daf110e3c39829cfdc028",
+  "prompts": {},
+  "sessions": {
+    "s_5041edcd530b23": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4cc2cb8a-d1f0-40a0-90af-6c167c5089e8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Abdul Rafay <99marafay@gmail.com>"
+    }
+  }
+}
