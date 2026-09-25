@@ -453,6 +453,21 @@ describe("team mismatch guard", () => {
     expect(cvx(["activate", PROJ]).out).not.toContain("team mismatch");
     rmSync(join(PROJ, ".env.local"), { force: true });
   });
+  test("a renamed team stays silent: old slug kept as an alias, or the deployment is confirmed", () => {
+    const note = (team: string) =>
+      writeFileSync(join(PROJ, ".env.local"), `CONVEX_DEPLOYMENT=dev:happy-otter-123 # team: ${team}, project: x\n`);
+    const accs = JSON.parse(readFileSync(ACCOUNTS, "utf8"));
+    accs.work.teams = [{ id: 1, slug: "wt-renamed", name: "WT", aliases: ["wt"] }];
+    writeFileSync(ACCOUNTS, JSON.stringify(accs));
+    note("wt"); // .env.local still carries the pre-rename slug
+    expect(cvx(["activate", PROJ]).out).not.toContain("team mismatch");
+    accs.work.deployments = ["happy-otter-123"];
+    writeFileSync(ACCOUNTS, JSON.stringify(accs));
+    note("some-stale-slug");
+    expect(cvx(["activate", PROJ]).out).not.toContain("team mismatch");
+    rmSync(join(PROJ, ".env.local"), { force: true });
+    seedAccounts();
+  });
 });
 
 describe("vault (passphrase-encrypted tokens)", () => {

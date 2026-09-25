@@ -43,6 +43,11 @@ import {
   activeAccountName,
   projectDeployment,
   projectEnv,
+  ownsProject,
+  deploymentOwner,
+  mergeTeams,
+  accountMeta,
+  type ProjectEnv,
   listBackups,
   restoreBackup,
   purgeBackups,
@@ -106,16 +111,55 @@ function ago(iso?: string): string | null {
 }
 
 /**
- * Wrong-account guard: the Convex CLI writes a `# team: …` note on the
- * CONVEX_DEPLOYMENT line of .env.local. If that team isn't one the account
- * belongs to, this project would deploy to a DIFFERENT account than the one
- * being activated — say so loudly, even in quiet (hook) mode.
+ * Wrong-account guard, offline: returns the project's team note when it names
+ * a team this account isn't in (and no confirmed deployment says otherwise).
+ * Such a project would deploy to a DIFFERENT account than the one being
+ * activated — callers say so loudly, even in quiet (hook) mode.
  */
 function mismatchedTeam(dir: string, acc: Account): string | null {
-  if (!acc.teams.length) return null; // unverified account — nothing to compare
-  const team = projectEnv(dir).team;
-  if (!team || acc.teams.some((t) => t.slug === team)) return null;
-  return team;
+  const env = projectEnv(dir);
+  return ownsProject(acc, env) === false ? env.team : null;
+}
+
+const isOffline = (e: unknown) => /reach Convex|timed out/.test((e as Error).message);
+
+function rememberDeployment(acc: Account, dep: string) {
+  if (!acc.deployments?.includes(dep)) acc.deployments = [...(acc.deployments ?? []), dep];
+}
+
+/**
+ * Ask Convex which stored account owns this project's deployment, trying
+ * `prefer` first. Network, so never on the cd hot path. The owner gets the
+ * deployment recorded (the caller writes the vault), which makes every later
+ * check offline. Returns the account name, null when no stored account can see
+ * the deployment, or undefined when it couldn't be checked (no deployment,
+ * offline, or every token rejected).
+ */
+async function findOwner(
+  env: ProjectEnv,
+  accounts: Accounts,
+  prefer?: string,
+): Promise<string | null | undefined> {
+  const dep = env.deployment;
+  if (!dep) return undefined;
+  const names = Object.keys(accounts).sort((a, b) => Number(b === prefer) - Number(a === prefer));
+  let answered = false;
+  for (const name of names) {
+    const token = tokenOf(name, accounts[name]);
+    if (token == null) continue;
+    try {
+      const owner = await deploymentOwner(token, dep);
+      answered = true;
+      if (owner) {
+        rememberDeployment(accounts[name], dep);
+        return name;
+      }
+    } catch (e) {
+      if (isOffline(e)) return undefined;
+      // This token was rejected; the other accounts may still answer.
+    }
+  }
+  return answered ? null : undefined;
 }
 
 function warnTeamMismatch(dir: string, name: string, acc: Account, say = console.log) {
@@ -125,7 +169,7 @@ function warnTeamMismatch(dir: string, name: string, acc: Account, say = console
     `${yellow("▲")} team mismatch: this project's deployment belongs to ${bold(team)}, ` +
       `but ${bold(name)} only has ${acc.teams.map((t) => t.slug).join(", ")}.\n` +
       dim("  Linked to the wrong account? Fix with: cvx link <account>\n") +
-      dim("  Team renamed on Convex? Refresh the stored team list with: cvx doctor"),
+      dim("  Team renamed on Convex? Run cvx doctor: it asks Convex and remembers the answer."),
   );
 }
 
@@ -205,7 +249,18 @@ export async function cmdAdd(args: string[]) {
     die(`Couldn't store the token: ${(e as Error).message}`);
   }
   const now = new Date().toISOString();
-  accounts[name] = { ...rec, teams, addedAt: accounts[name]?.addedAt ?? now, verifiedAt: now };
+  // Re-adding the same account (refresh) keeps its metadata and folds in the
+  // fresh teams; overwriting with a different login starts clean.
+  const prev = accounts[name];
+  const same =
+    !!prev && prev.teams.some((p) => teams.some((t) => (p.id != null && p.id === t.id) || p.slug === t.slug));
+  accounts[name] = {
+    ...(same ? accountMeta(prev) : {}),
+    ...rec,
+    teams: same ? mergeTeams(prev.teams, teams) : teams,
+    addedAt: prev?.addedAt ?? now,
+    verifiedAt: now,
+  };
   if (email) accounts[name].email = email;
   writeAccounts(accounts);
   if (token === currentConvexToken()) writeActive(name, token);
@@ -265,7 +320,7 @@ export async function cmdRefresh(args: string[]) {
 
 // --- link / unlink / rename / rm --------------------------------------------
 
-export function cmdLink(args: string[]) {
+export async function cmdLink(args: string[]) {
   const flags = parseFlags(args);
   const account = flags._[0];
   if (!account) die(`Usage: ${bold("cvx link <account> [path]")}`);
@@ -283,6 +338,31 @@ export function cmdLink(args: string[]) {
   console.log(
     `${green("✓")} Linked ${bold(shortPath(target))} → ${accountColor(account)} ${teamLabel(acc)}${vexTag("happy", account)}`,
   );
+
+  // Confirm with Convex that this account owns the deployment. Remembering
+  // it makes the cd-time guard rename-proof and offline.
+  const env = projectEnv(target);
+  if (!env.deployment) return;
+  const label = "  Checking with Convex… ";
+  const sp = spin(label);
+  const owner = await findOwner(env, accounts, account);
+  if (owner) writeAccounts(accounts);
+  if (owner === account) return sp.stop(label + green("verified"));
+  if (owner === undefined) return sp.stop(label + dim("couldn't check"));
+  if (owner === null) {
+    sp.stop(label + yellow("no stored account owns it"));
+    console.log(
+      dim(`  None of your accounts can see ${env.deployment}. Store the one that does: `) + bold("cvx login <name>"),
+    );
+    return;
+  }
+  sp.stop(label + yellow(`owned by ${owner}`));
+  console.log(`${yellow("▲")} Convex says this project belongs to ${accountColor(owner)}, not ${bold(account)}.`);
+  if (process.stdin.isTTY && /^(y(es)?)?$/i.test(await ask(`Link it to ${owner} instead? [Y/n] `))) {
+    links[target] = owner;
+    writeLinks(links);
+    console.log(`${green("✓")} Linked ${bold(shortPath(target))} → ${accountColor(owner)}${vexTag("happy", owner)}`);
+  } else console.log(dim(`  Fix later with: cvx link ${owner} ${shortPath(target)}`));
 }
 
 export function cmdUnlink(args: string[]) {
@@ -593,27 +673,34 @@ export async function cmdUse(args: string[]) {
       `This directory isn't linked to an account.\n  Run ${bold("cvx link <account>")} — or ${bold("cvx use")} in an interactive terminal to pick one.`,
     );
 
-  // Auto-link offer: if this dir's deployment team uniquely identifies a stored
-  // account, offer to activate + link it before falling back to the picker.
-  const detected = projectEnv(process.cwd()).team;
+  // Auto-link offer: if this project uniquely identifies a stored account
+  // (offline first, then by asking Convex), offer to activate + link it
+  // before falling back to the picker.
+  const env = projectEnv(process.cwd());
+  const matches = names.filter((n) => ownsProject(accounts[n], env) === true);
+  let detected: string | null | undefined = matches.length === 1 ? matches[0] : undefined;
+  if (detected === undefined && env.deployment) {
+    const label = "Asking Convex who owns this project… ";
+    const sp = spin(label);
+    detected = await findOwner(env, accounts);
+    sp.stop(label + (detected ? green(detected) : dim("no match")));
+    if (detected) writeAccounts(accounts);
+  }
   if (detected) {
-    const matches = names.filter((n) => accounts[n].teams.some((t) => t.slug === detected));
-    if (matches.length === 1) {
-      const name = matches[0];
-      const yn = await ask(
-        `Detected team ${bold(detected)} → account ${accountColor(name)}. Activate and link this directory? [Y/n] `,
+    const name = detected;
+    const yn = await ask(
+      `This project belongs to ${accountColor(name)}${env.team ? dim(` (team ${env.team})`) : ""}. Activate and link this directory? [Y/n] `,
+    );
+    if (yn === "" || /^y(es)?$/i.test(yn)) {
+      activateByName(name, accounts[name]);
+      const here = canon(process.cwd());
+      const links = readLinks();
+      links[here] = name;
+      writeLinks(links);
+      console.log(
+        `${green("✓")} Linked ${bold(shortPath(here))} → ${accountColor(name)} ${dim("— auto-switches from now on.")}`,
       );
-      if (yn === "" || /^y(es)?$/i.test(yn)) {
-        activateByName(name, accounts[name]);
-        const here = canon(process.cwd());
-        const links = readLinks();
-        links[here] = name;
-        writeLinks(links);
-        console.log(
-          `${green("✓")} Linked ${bold(shortPath(here))} → ${accountColor(name)} ${dim("— auto-switches from now on.")}`,
-        );
-        return;
-      }
+      return;
     }
   }
 
@@ -927,36 +1014,51 @@ export async function cmdScan(args: string[]) {
   const skips: string[] = [];
   let already = 0;
 
-  for (const dir of findProjects(root, depth)) {
-    const team = projectEnv(dir).team;
-    if (!team) {
-      skips.push(`  ${dim("•")} ${shortPath(dir)} ${dim("— no team note, skipped")}`);
-      continue;
-    }
-    const matches = names.filter((n) => accounts[n].teams.some((t) => t.slug === team));
-    if (matches.length === 0) {
-      skips.push(`  ${yellow("•")} ${shortPath(dir)} ${dim("— no account for team")} ${bold(team)}`);
-      continue;
-    }
-    if (matches.length > 1) {
-      skips.push(
-        `  ${yellow("•")} ${shortPath(dir)} ${dim(`— team ${team} matches ${matches.length} accounts, skipped`)}`,
-      );
-      continue;
-    }
-    const account = matches[0];
+  const consider = (dir: string, account: string) => {
     const linked = links[canon(dir)];
-    if (linked === account) {
-      already++;
-      continue;
-    }
-    if (linked) {
+    if (linked === account) already++;
+    else if (linked)
       skips.push(
-        `  ${yellow("•")} ${shortPath(dir)} ${dim(`— already linked to ${linked} (team wants ${account}), left as-is`)}`,
+        `  ${yellow("•")} ${shortPath(dir)} ${dim(`— already linked to ${linked} (belongs to ${account}), left as-is`)}`,
       );
+    else proposals.push({ dir, account });
+  };
+
+  // Offline matching first; anything it can't place is asked of Convex below.
+  const unplaced: Array<{ dir: string; env: ProjectEnv; skip: string }> = [];
+  for (const dir of findProjects(root, depth)) {
+    const env = projectEnv(dir);
+    const matches = names.filter((n) => ownsProject(accounts[n], env) === true);
+    if (matches.length === 1) {
+      consider(dir, matches[0]);
       continue;
     }
-    proposals.push({ dir, account });
+    const skip = !env.team
+      ? `  ${dim("•")} ${shortPath(dir)} ${dim("— no team note, skipped")}`
+      : matches.length > 1
+        ? `  ${yellow("•")} ${shortPath(dir)} ${dim(`— team ${env.team} matches ${matches.length} accounts, skipped`)}`
+        : `  ${yellow("•")} ${shortPath(dir)} ${dim("— no account for team")} ${bold(env.team)}`;
+    if (env.deployment) unplaced.push({ dir, env, skip });
+    else skips.push(skip);
+  }
+
+  if (unplaced.length) {
+    const label = `Asking Convex about ${unplaced.length} project(s)… `;
+    const sp = spin(label);
+    let found = 0;
+    for (let i = 0; i < unplaced.length; i += 4) {
+      const batch = unplaced.slice(i, i + 4);
+      const owners = await Promise.all(batch.map((u) => findOwner(u.env, accounts)));
+      batch.forEach((u, j) => {
+        const owner = owners[j];
+        if (owner) {
+          found++;
+          consider(u.dir, owner);
+        } else skips.push(u.skip);
+      });
+    }
+    sp.stop(label + (found ? green(`${found} placed`) : dim("none placed")));
+    if (found) writeAccounts(accounts); // remember the confirmed deployments
   }
 
   if (skips.length) {
@@ -1361,7 +1463,7 @@ export async function cmdDoctor(args: string[] = []) {
         const before = acc.teams.map((x) => x.slug).join(", ");
         const after = teams.map((x) => x.slug).join(", ");
         if (before !== after) console.log(dim(`      teams: ${before || "(none)"} → ${after || "(none)"}`));
-        acc.teams = teams;
+        acc.teams = mergeTeams(acc.teams, teams);
         acc.verifiedAt = new Date().toISOString();
         verifiedAny = true;
       } catch (e) {
@@ -1381,7 +1483,45 @@ export async function cmdDoctor(args: string[] = []) {
         }
       }
     }
-    if (verifiedAny) writeAccounts(accounts); // persist fresh verifiedAt stamps
+    if (verifiedAny) writeAccounts(accounts); // persist fresh verifiedAt stamps and teams
+  }
+
+  // Project ownership — asks Convex who owns each linked project's deployment.
+  // Catches wrong links, re-confirms projects after a team rename, and drops
+  // deployments an account no longer owns (a project moved between teams).
+  const relinks: Array<{ path: string; to: string }> = [];
+  if (tokenChecks && linksOk) {
+    const checks = Object.entries(readLinks())
+      .map(([path, name]) => ({ path, name, env: projectEnv(path) }))
+      .filter((c) => accounts[c.name] && c.env.deployment && existsSync(c.path));
+    if (checks.length) {
+      console.log(bold("\nProjects:"));
+      let changed = false;
+      for (let i = 0; i < checks.length; i += 4) {
+        const batch = checks.slice(i, i + 4);
+        const owners = await Promise.all(batch.map((c) => findOwner(c.env, accounts, c.name)));
+        batch.forEach((c, j) => {
+          const owner = owners[j];
+          const where = shortPath(c.path).padEnd(28);
+          if (owner === undefined) return console.log(`  ${yellow("!")} ${where} ${dim("couldn't check")}`);
+          changed = true;
+          if (owner === c.name) return console.log(`  ${green("✓")} ${where} ${accountColor(c.name)}`);
+          const acc = accounts[c.name];
+          acc.deployments = acc.deployments?.filter((d) => d !== c.env.deployment);
+          if (owner === null) {
+            healthy = false;
+            return console.log(`  ${yellow("▲")} ${where} ${dim(`no stored account can see ${c.env.deployment}`)}`);
+          }
+          if (!flags.fix) healthy = false; // --fix relinks it below
+          relinks.push({ path: c.path, to: owner });
+          console.log(
+            `  ${yellow("▲")} ${where} ${dim(`linked to ${c.name}, owned by`)} ${accountColor(owner)}` +
+              (flags.fix ? "" : dim(`  → cvx link ${owner} ${shortPath(c.path)}`)),
+          );
+        });
+      }
+      if (changed) writeAccounts(accounts);
+    }
   }
 
   // --fix: apply repairs. Fixed problems no longer force a non-zero exit;
@@ -1415,6 +1555,14 @@ export async function cmdDoctor(args: string[] = []) {
       }
       if (pwshStale && installPwsh(hookFor("powershell")) === "updated")
         fixed("updated the PowerShell hook");
+    }
+
+    // Wrong links → point them at the account Convex says owns the project.
+    if (relinks.length) {
+      const links = readLinks();
+      for (const r of relinks) links[r.path] = r.to;
+      writeLinks(links);
+      for (const r of relinks) fixed(`relinked ${shortPath(r.path)} → ${r.to}`);
     }
 
     // Dead links → prune every links.json path that no longer exists (one write).

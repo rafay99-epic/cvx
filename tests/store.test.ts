@@ -97,3 +97,38 @@ describe("links", () => {
     expect(store.resolveLink(tmpdir())).toBe(null);
   });
 });
+
+describe("team identity (renamed teams)", () => {
+  const acme = { id: 7, slug: "acme", name: "Acme" };
+  test("mergeTeams keeps a renamed team's old slugs as aliases, across renames", () => {
+    const once = store.mergeTeams([acme], [{ id: 7, slug: "acme-labs", name: "Acme Labs" }]);
+    expect(once).toEqual([{ id: 7, slug: "acme-labs", name: "Acme Labs", aliases: ["acme"] }]);
+    const twice = store.mergeTeams(once, [{ id: 7, slug: "acme-inc", name: "Acme Inc" }]);
+    expect(twice[0].aliases).toEqual(["acme", "acme-labs"]);
+  });
+  test("mergeTeams pairs id-less stored teams by name, or one-to-one", () => {
+    const byName = store.mergeTeams(
+      [{ slug: "old", name: "Same" }, { slug: "x", name: "X" }],
+      [{ id: 1, slug: "new", name: "Same" }],
+    );
+    expect(byName[0].aliases).toEqual(["old"]);
+    const single = store.mergeTeams([{ slug: "a", name: "A" }], [{ id: 2, slug: "b", name: "B" }]);
+    expect(single[0].aliases).toEqual(["a"]);
+  });
+  test("mergeTeams gives an unrelated new team no aliases", () => {
+    const out = store.mergeTeams([acme], [acme, { id: 9, slug: "side", name: "Side" }]);
+    expect(out[1]).toEqual({ id: 9, slug: "side", name: "Side" });
+  });
+  test("ownsProject: confirmed deployment beats a stale note; aliases match; nothing to compare is null", () => {
+    const acc = { teams: [{ ...acme, slug: "acme-labs", aliases: ["acme"] }], addedAt: "", deployments: ["happy-1"] };
+    expect(store.ownsProject(acc, { deployment: "happy-1", team: "someone-else" })).toBe(true);
+    expect(store.ownsProject(acc, { deployment: "other-2", team: "acme" })).toBe(true);
+    expect(store.ownsProject(acc, { deployment: "other-2", team: "nope" })).toBe(false);
+    expect(store.ownsProject(acc, { deployment: "other-2", team: null })).toBeNull();
+  });
+  test("deploymentOwner surfaces network/auth failures as errors (online or offline)", async () => {
+    await expect(store.deploymentOwner("not-a-real-token", "happy-otter-123")).rejects.toThrow(
+      /Convex|token/,
+    );
+  });
+});

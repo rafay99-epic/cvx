@@ -42,7 +42,7 @@ const CONFIG_FILE = join(VAULT, "config.json");
 const ACTIVE_FILE = join(VAULT, "active");
 const WELCOME_MARKER = join(VAULT, ".welcomed");
 const CONVEX_CONFIG = join(HOME, ".convex", "config.json");
-const API_TEAMS = "https://api.convex.dev/api/teams";
+const API = "https://api.convex.dev/api";
 const CLIENT = `convex-switch/${VERSION}`;
 
 // Vault schema version. Bump when the on-disk format changes; a legacy vault
@@ -51,7 +51,12 @@ export const SCHEMA = 2;
 
 // --- Types ------------------------------------------------------------------
 
-export type Team = { slug: string; name: string };
+/**
+ * A Convex team as the account's token sees it. Slugs are editable in the
+ * Convex dashboard, so `id` is the identity; `aliases` keeps slugs the team
+ * had before a rename, because `.env.local` team notes keep the old one.
+ */
+export type Team = { id?: number; slug: string; name: string; aliases?: string[] };
 /**
  * An account's token lives in exactly one place: inline (`token`, the default
  * file vault), the OS keychain (`keychain: true`), a DPAPI blob (`enc`, on
@@ -69,6 +74,9 @@ export type Account = {
   // Human label only — Convex's profile API rejects CLI tokens
   // ("WorkOSSessionRequired"), so the email can't be fetched; we ask the user.
   email?: string;
+  // Deployment names Convex confirmed this account owns. Rename-proof, and
+  // checked offline on the cd hot path before any team slug.
+  deployments?: string[];
 };
 export type Accounts = Record<string, Account>;
 /** The fields that say where a token lives; everything else on Account is metadata. */
@@ -389,15 +397,20 @@ export function setConvexToken(token: string) {
   writeFileAtomic(CONVEX_CONFIG, JSON.stringify(existing, null, 2) + "\n");
 }
 
-// --- Verify a token against Convex (also reveals its teams) -----------------
+// --- Convex API (network: never on the cd hot path) ---------------------------
 
-export async function verifyToken(token: string): Promise<Team[]> {
+/**
+ * GET an api.convex.dev endpoint with a CLI token. Network failures and a
+ * rejected token throw with a user-facing message; any other response is
+ * returned for the caller to interpret.
+ */
+async function convexGet(token: string, path: string): Promise<Response> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 12000);
   try {
     let res: Response;
     try {
-      res = await fetch(API_TEAMS, {
+      res = await fetch(`${API}/${path}`, {
         headers: { Authorization: `Bearer ${token}`, "Convex-Client": CLIENT },
         signal: ctrl.signal,
       });
@@ -407,20 +420,85 @@ export async function verifyToken(token: string): Promise<Team[]> {
         throw new Error("timed out reaching Convex (check your connection)");
       throw new Error("couldn't reach Convex — are you online?");
     }
-    if (res.status === 401 || res.status === 403)
-      throw new Error("token rejected by Convex (expired or invalid)");
-    if (!res.ok) throw new Error(`Convex API returned ${res.status}`);
-    let teams: Team[];
-    try {
-      teams = (await res.json()) as Team[];
-    } catch {
-      throw new Error("Convex returned an unexpected (non-JSON) response");
-    }
-    if (!Array.isArray(teams)) throw new Error("Convex returned an unexpected response shape");
-    return teams.map((t) => ({ slug: t.slug, name: t.name }));
+    if (res.status === 401) throw new Error("token rejected by Convex (expired or invalid)");
+    return res;
   } finally {
     clearTimeout(t);
   }
+}
+
+async function readJSONBody(res: Response): Promise<unknown> {
+  try {
+    return await res.json();
+  } catch {
+    throw new Error("Convex returned an unexpected (non-JSON) response");
+  }
+}
+
+/** Verify a token and return the teams it can see. */
+export async function verifyToken(token: string): Promise<Team[]> {
+  const res = await convexGet(token, "teams");
+  if (res.status === 403) throw new Error("token rejected by Convex (expired or invalid)");
+  if (!res.ok) throw new Error(`Convex API returned ${res.status}`);
+  const teams = await readJSONBody(res);
+  if (!Array.isArray(teams)) throw new Error("Convex returned an unexpected response shape");
+  return teams.map((t: { id?: unknown; slug: string; name: string }) => ({
+    ...(typeof t.id === "number" ? { id: t.id } : {}),
+    slug: t.slug,
+    name: t.name,
+  }));
+}
+
+/**
+ * Which team owns `deployment`, as this token sees it (the same endpoint the
+ * Convex CLI uses). null means this token can't see it: another account's.
+ */
+export async function deploymentOwner(
+  token: string,
+  deployment: string,
+): Promise<{ teamId: number; team: string } | null> {
+  const res = await convexGet(token, `deployment/${encodeURIComponent(deployment)}/team_and_project`);
+  if (res.status === 403 || res.status === 404) return null;
+  const body = (await readJSONBody(res)) as { team?: unknown; teamId?: unknown; code?: unknown };
+  if (!res.ok) {
+    if (body?.code === "DeploymentNotFound" || body?.code === "ProjectNotFound") return null;
+    throw new Error(`Convex API returned ${res.status}`);
+  }
+  if (typeof body.team !== "string" || typeof body.teamId !== "number")
+    throw new Error("Convex returned an unexpected response shape");
+  return { teamId: body.teamId, team: body.team };
+}
+
+/**
+ * Fold a fresh team list into the stored one. A team whose slug changed keeps
+ * its old slugs as aliases, so stale `# team:` notes in .env.local still match.
+ * Pairing is by id; stored teams from before ids were kept pair by name, or
+ * one-to-one when both lists hold a single team.
+ */
+export function mergeTeams(stored: Team[], fresh: Team[]): Team[] {
+  return fresh.map((t) => {
+    const prev =
+      stored.find((s) => s.id != null && s.id === t.id) ??
+      stored.find((s) => s.id == null && s.name === t.name) ??
+      (stored.length === 1 && fresh.length === 1 && stored[0].id == null ? stored[0] : undefined);
+    if (!prev) return t;
+    const aliases = [...new Set([...(prev.aliases ?? []), prev.slug])].filter((a) => a !== t.slug);
+    return aliases.length ? { ...t, aliases } : t;
+  });
+}
+
+export type ProjectEnv = { deployment: string | null; team: string | null };
+
+/**
+ * Offline ownership check for the cd hot path: true = this account owns the
+ * project, false = its team note names a team the account isn't in, null =
+ * nothing to compare. A confirmed deployment beats any (possibly stale) note.
+ */
+export function ownsProject(acc: Account, env: ProjectEnv): boolean | null {
+  if (env.deployment && acc.deployments?.includes(env.deployment)) return true;
+  const team = env.team;
+  if (!team || !acc.teams.length) return null;
+  return acc.teams.some((t) => t.slug === team || !!t.aliases?.includes(team));
 }
 
 // --- Path resolution --------------------------------------------------------
@@ -457,7 +535,7 @@ export function resolveLink(dir: string): { path: string; account: string } | nu
  * team slug from the `# team: …` comment the Convex CLI writes on that line.
  * Used by `cvx open` (deployment) and the wrong-account guard (team).
  */
-export function projectEnv(dir: string): { deployment: string | null; team: string | null } {
+export function projectEnv(dir: string): ProjectEnv {
   let cur = canon(dir);
   while (true) {
     const envFile = join(cur, ".env.local");
