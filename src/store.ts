@@ -71,6 +71,10 @@ export type Account = {
   email?: string;
 };
 export type Accounts = Record<string, Account>;
+/** The fields that say where a token lives; everything else on Account is metadata. */
+type SecretField = "token" | "keychain" | "enc" | "pw";
+export type TokenRecord = Pick<Account, SecretField>;
+export type AccountMeta = Omit<Account, SecretField>;
 export type Links = Record<string, string>; // absolute project path -> account name
 export type Config = { storage?: Backend; schemaVersion?: number; disabled?: boolean };
 
@@ -294,18 +298,24 @@ export function tokenOf(name: string, acc: Account): string | null {
 }
 
 /** Build an account record that stores `token` via the given backend. */
-export function makeTokenRecord(
-  backend: Backend,
-  name: string,
-  token: string,
-): { token?: string; keychain?: boolean; enc?: string; pw?: string } {
+export function makeTokenRecord(backend: Backend, name: string, token: string): TokenRecord {
   if (backend === "passphrase") return { pw: encryptToken(token) }; // throws if locked
   return storeToken(backend, name, token);
 }
 
+/**
+ * Strip the secret fields, keeping every metadata field. Removing by name
+ * (instead of copying a list of keep-fields) means new Account fields survive
+ * storage moves and export without anyone remembering to add them here.
+ */
+export function accountMeta<T extends Partial<Record<SecretField, unknown>>>(acc: T): Omit<T, SecretField> {
+  const { token, keychain, enc, pw, ...meta } = acc;
+  return meta;
+}
+
 /** Rebuild an account around a new token record, preserving its metadata. */
-export function withTokenRecord(acc: Account, rec: ReturnType<typeof makeTokenRecord>): Account {
-  return { teams: acc.teams, addedAt: acc.addedAt, verifiedAt: acc.verifiedAt, ...rec };
+export function withTokenRecord(acc: Account, rec: TokenRecord): Account {
+  return { ...accountMeta(acc), ...rec };
 }
 
 /**

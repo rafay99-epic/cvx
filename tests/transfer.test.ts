@@ -106,6 +106,17 @@ describe("cmdImport", () => {
     expect(store.readLinks()[join(SANDBOX, "proj")]).toBe("work");
   });
 
+  test("account metadata (email) survives export → import; stray secret fields don't", async () => {
+    store.writeAccounts({ work: { ...acct("tok-work"), email: "me@work.dev" } });
+    await transfer.cmdExport([EXPORT_FILE]);
+    store.writeAccounts({});
+    await transfer.cmdImport([EXPORT_FILE]);
+    const work = store.readAccounts().work;
+    expect(work.email).toBe("me@work.dev");
+    expect(work.teams[0].slug).toBe("t");
+    expect(work.pw).toBeUndefined();
+  });
+
   test("skips existing accounts without --force, overwrites with --force", async () => {
     await transfer.cmdExport([EXPORT_FILE]);
     // Local "work" has a different token; a plain import must keep it.

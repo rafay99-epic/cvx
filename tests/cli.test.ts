@@ -457,13 +457,15 @@ describe("team mismatch guard", () => {
 
 describe("vault (passphrase-encrypted tokens)", () => {
   const env = { CVX_PASSPHRASE: "e2e-vault-passphrase" };
-  test("encrypt replaces plaintext tokens with pw blobs", () => {
+  test("encrypt replaces plaintext tokens with pw blobs, keeping metadata", () => {
     seedAccounts();
+    cvx(["email", "work", "me@work.dev"]);
     const r = cvx(["vault", "encrypt"], { env });
     expect(r.code).toBe(0);
     const raw = readFileSync(ACCOUNTS, "utf8");
     expect(raw).not.toContain("tok-work-AAA");
     expect(JSON.parse(raw).work.pw).toBeDefined();
+    expect(JSON.parse(raw).work.email).toBe("me@work.dev");
     expect(JSON.parse(readFileSync(CONFIG, "utf8")).storage).toBe("passphrase");
   });
   test("activate works while unlocked", () => {
@@ -485,6 +487,7 @@ describe("vault (passphrase-encrypted tokens)", () => {
   test("decrypt restores plaintext and removes the vault metadata", () => {
     expect(cvx(["vault", "decrypt"], { env }).code).toBe(0);
     expect(JSON.parse(readFileSync(ACCOUNTS, "utf8")).work.token).toBe("tok-work-AAA");
+    expect(JSON.parse(readFileSync(ACCOUNTS, "utf8")).work.email).toBe("me@work.dev");
     expect(existsSync(join(HOME, ".convex-switch", "vault.json"))).toBe(false);
     expect(JSON.parse(readFileSync(CONFIG, "utf8")).storage).toBe("file");
   });
