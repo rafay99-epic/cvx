@@ -20,23 +20,19 @@ import {
 import { join, resolve, dirname } from "node:path";
 import {
   type Backend,
-  detectBackend,
   storeToken,
   loadToken,
-  deleteToken,
 } from "./keychain";
 import { decryptToken, encryptToken } from "./vault";
-
-// Placeholder for local/dev runs; the release workflow stamps the real
-// 0.<commit-count> version into this line before compiling (see release.yml).
-export const VERSION = "0.0.0-dev";
+import { useAccountColors } from "./colors";
+import { VERSION } from "./version";
 
 // --- Paths & constants ------------------------------------------------------
 
 export { HOME, VAULT } from "./paths"; // resolved in ONE place (CVX_HOME sandbox)
 import { HOME, VAULT } from "./paths";
-const ACCOUNTS_FILE = join(VAULT, "accounts.json");
-const LINKS_FILE = join(VAULT, "links.json");
+export const ACCOUNTS_FILE = join(VAULT, "accounts.json");
+export const LINKS_FILE = join(VAULT, "links.json");
 const CONFIG_FILE = join(VAULT, "config.json");
 const ACTIVE_FILE = join(VAULT, "active");
 const WELCOME_MARKER = join(VAULT, ".welcomed");
@@ -77,6 +73,7 @@ export type Account = {
   // Deployment names Convex confirmed this account owns. Rename-proof, and
   // checked offline on the cd hot path before any team slug.
   deployments?: string[];
+  color?: number; // 256-color code, assigned when the account is added
 };
 export type Accounts = Record<string, Account>;
 /** The fields that say where a token lives; everything else on Account is metadata. */
@@ -162,12 +159,17 @@ function writeJSON(file: string, data: unknown) {
   writeFileAtomic(file, JSON.stringify(data, null, 2) + "\n");
 }
 
-export const readAccounts = () => readVaultJSON<Accounts>(ACCOUNTS_FILE, {});
+export function readAccounts(): Accounts {
+  const accounts = readVaultJSON<Accounts>(ACCOUNTS_FILE, {});
+  useAccountColors(accounts);
+  return accounts;
+}
 export const readLinks = () => readVaultJSON<Links>(LINKS_FILE, {});
 export const readConfig = () => readVaultJSON<Config>(CONFIG_FILE, {});
 export function writeAccounts(a: Accounts) {
   snapshotOnce();
   writeJSON(ACCOUNTS_FILE, a);
+  useAccountColors(a);
 }
 export function writeLinks(l: Links) {
   snapshotOnce();
@@ -293,8 +295,6 @@ export function storageBackend(): Backend {
   return readConfig().storage ?? "file";
 }
 
-/** Best keychain backend available on this machine (for `keychain enable`). */
-export { detectBackend, deleteToken };
 
 /** Resolve an account's actual token from wherever its record keeps it. */
 export function tokenOf(name: string, acc: Account): string | null {

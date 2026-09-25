@@ -61,11 +61,19 @@ export function brandLine(s: string, i: number, n: number): string {
 }
 
 // --- Account colors ----------------------------------------------------------
-// Every account gets a stable color from its name, so "work" is always the
-// same shade in accounts/ls/status/switch messages — you learn to recognize
-// accounts at a glance. Mid-tone 256 colors, readable on dark and light.
+// Every account keeps one color everywhere (accounts, ls, status, switch
+// messages, Vex), so you learn to recognize accounts at a glance. New accounts
+// get the first free color in ACCOUNT_PALETTE, stored on the account, so up to
+// eight accounts never share one. The palette has no red or yellow (those mean
+// alarm and warning) and nothing near Vex's resting green. site/vex.js keeps a
+// copy; tests/site.test.ts checks they match.
 
-const ACCOUNT_PALETTE = [45, 213, 118, 214, 141, 81, 203, 227, 87, 156];
+export const ACCOUNT_PALETTE = [45, 141, 214, 213, 111, 180, 116, 176];
+
+// Accounts stored before colors were assigned keep their old name-hash color,
+// so nobody's colors change under them. `cvx doctor --fix` reassigns clashes.
+const LEGACY_PALETTE = [45, 213, 118, 214, 141, 81, 203, 227, 87, 156];
+const RESERVED = new Set([203, 227]); // alarm red, warning yellow
 
 function hash(s: string): number {
   let h = 5381;
@@ -73,10 +81,26 @@ function hash(s: string): number {
   return h;
 }
 
-/** The 256-color code assigned to an account name (stable across runs). */
-export function accountColorCode(name: string): number {
-  return ACCOUNT_PALETTE[hash(name) % ACCOUNT_PALETTE.length];
+const stored = new Map<string, number>();
+
+/** Register each account's stored color. store.readAccounts calls this on every read. */
+export function useAccountColors(accounts: Record<string, { color?: number }>) {
+  stored.clear();
+  for (const [name, acc] of Object.entries(accounts))
+    if (typeof acc.color === "number") stored.set(name, acc.color);
 }
+
+/** The 256-color code an account wears. */
+export function accountColorCode(name: string): number {
+  return stored.get(name) ?? LEGACY_PALETTE[hash(name) % LEGACY_PALETTE.length];
+}
+
+/** The first palette color not in `taken` (wraps once all eight are used). */
+export function nextAccountColor(taken: number[]): number {
+  return ACCOUNT_PALETTE.find((c) => !taken.includes(c)) ?? ACCOUNT_PALETTE[taken.length % ACCOUNT_PALETTE.length];
+}
+
+export const isReservedColor = (code: number) => RESERVED.has(code);
 
 /** Colorize an account name with its stable color (bold, for emphasis). */
 export function accountColor(name: string, text?: string): string {

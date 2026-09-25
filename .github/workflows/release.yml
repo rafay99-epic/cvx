@@ -44,8 +44,8 @@ jobs:
 
       - name: Stamp version into the binary
         run: |
-          sed -i "s|export const VERSION = \"[^\"]*\";|export const VERSION = \"${VERSION}\";|" src/store.ts
-          grep -n 'export const VERSION' src/store.ts
+          sed -i "s|export const VERSION = \"[^\"]*\";|export const VERSION = \"${VERSION}\";|" src/version.ts
+          grep -n 'export const VERSION' src/version.ts
 
       - name: Build binaries (all targets)
         run: |

@@ -3,7 +3,7 @@
  * to get it. Never replaces the running binary itself.
  */
 
-import { VERSION } from "./store";
+import { VERSION } from "./version";
 import { bold, dim, green, yellow, cyan, vexTag } from "./ui";
 
 const RELEASES_API = "https://api.github.com/repos/rafay99-epic/cvx/releases/latest";

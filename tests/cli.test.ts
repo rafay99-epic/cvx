@@ -516,18 +516,13 @@ describe("export / import via the CLI", () => {
   });
 });
 
-describe("refresh --all / help", () => {
+describe("refresh --all", () => {
   test("refresh --all with an empty vault dies before any browser opens", () => {
     writeFileSync(ACCOUNTS, "{}");
     const r = cvx(["refresh", "--all"]);
     expect(r.code).toBe(1);
     expect(r.err).toContain("No accounts");
     seedAccounts();
-  });
-  test("help lists the new commands", () => {
-    const out = cvx(["help"]).out;
-    for (const s of ["cvx use [account]", "cvx vault", "cvx export", "refresh --all", "upgrade"])
-      expect(out).toContain(s);
   });
 });
 

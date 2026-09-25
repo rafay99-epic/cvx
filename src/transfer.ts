@@ -41,8 +41,7 @@ export function packVault(passphrase: string): string {
   for (const [name, acc] of Object.entries(accounts)) {
     const token = tokenOf(name, acc);
     // Bail before writing anything — a partial/tokenless export is worse than none.
-    if (token == null)
-      die(`Couldn't read the token for ${bold(name)}. Aborting export (nothing was written).`);
+    if (token == null) throw new Error(`Couldn't read the token for ${name}. Aborting export (nothing was written).`);
     exported[name] = { ...accountMeta(acc), token };
   }
   const payload: Payload = { accounts: exported, links: readLinks() };

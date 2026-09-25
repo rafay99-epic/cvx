@@ -157,6 +157,7 @@ $env.config.hooks.env_change.PWD = (
 `.trimStart();
 
 export const SHELLS: Shell[] = ["zsh", "bash", "powershell", "fish", "nu"];
+export const isShell = (s: unknown): s is Shell => SHELLS.includes(s as Shell);
 
 export function hookFor(shell: Shell): string {
   switch (shell) {
