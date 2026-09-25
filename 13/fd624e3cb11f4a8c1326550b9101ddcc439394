@@ -1,0 +1,20 @@
+src/commands.ts
+  h_1e0ba4a9f2a4b4 46-50,114-117,120-162,172,252-263,323,341-365,676-688,690-701,703,1017,1019-1020,1022,1024-1033,1036-1061,1466,1486-1524,1560-1567
+src/store.ts
+  h_1e0ba4a9f2a4b4 45,54-59,77-79,400,402-407,413,423-424,430-503,538
+tests/cli.test.ts
+  h_1e0ba4a9f2a4b4 456-470
+tests/store.test.ts
+  h_1e0ba4a9f2a4b4 100-134
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "13fd624e3cb11f4a8c1326550b9101ddcc439394",
+  "prompts": {},
+  "humans": {
+    "h_1e0ba4a9f2a4b4": {
+      "author": "Abdul Rafay <99marafay@gmail.com>"
+    }
+  }
+}
