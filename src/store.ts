@@ -4,7 +4,6 @@
  * (colors/printing live in ui.ts).
  */
 
-import { homedir } from "node:os";
 import { createHash } from "node:crypto";
 import {
   existsSync,
@@ -45,8 +44,9 @@ const CONVEX_CONFIG = join(HOME, ".convex", "config.json");
 const API = "https://api.convex.dev/api";
 const CLIENT = `convex-switch/${VERSION}`;
 
-// Vault schema version. Bump when the on-disk format changes; a legacy vault
-// (no schemaVersion, or a lower one) triggers the one-time migration prompt.
+// Vault format version, stamped when a vault is created. Nothing reads it yet:
+// it exists so a future format change can tell old vaults apart. Vaults from
+// before the stamp have the same shape as version 2.
 export const SCHEMA = 2;
 
 // --- Types ------------------------------------------------------------------
@@ -88,11 +88,8 @@ export type Config = { storage?: Backend; schemaVersion?: number; disabled?: boo
 
 // --- Vault I/O (dir 700, files 600) -----------------------------------------
 
+/** Create the vault on first use and re-assert its 700 mode. Not called on the cd hot path. */
 export function ensureVault() {
-  // A brand-new vault (no accounts file yet) is born at the current schema, so
-  // fresh installs never see the migration prompt. A vault that already has an
-  // accounts file but no schemaVersion is a LEGACY vault — left untouched here
-  // so maybeMigrate() can prompt the user before upgrading it.
   const fresh = !existsSync(ACCOUNTS_FILE);
   if (!existsSync(VAULT)) mkdirSync(VAULT, { recursive: true, mode: 0o700 });
   try {
@@ -530,36 +527,43 @@ export function resolveLink(dir: string): { path: string; account: string } | nu
 }
 
 /**
- * Read the CONVEX_DEPLOYMENT line from the nearest .env.local (walking up from
- * dir): the deployment name without its `dev:`/`prod:` type prefix, and the
- * team slug from the `# team: …` comment the Convex CLI writes on that line.
+ * Parse the CONVEX_DEPLOYMENT line of `dir`'s own .env.local: the deployment
+ * name without its `dev:`/`prod:` type prefix, and the team slug from the
+ * `# team: …` comment the Convex CLI writes on that line. null when the file
+ * or the line is missing.
+ */
+export function readEnvLocal(dir: string): ProjectEnv | null {
+  const envFile = join(dir, ".env.local");
+  if (!existsSync(envFile)) return null;
+  try {
+    for (const line of readFileSync(envFile, "utf8").split(/\r?\n/)) {
+      const m = line.match(/^\s*CONVEX_DEPLOYMENT\s*=\s*(.+?)\s*(#.*)?$/);
+      if (!m) continue;
+      let v = m[1].trim().replace(/^["']|["']$/g, "");
+      // strip an inline "# team: ..." comment tail and the type prefix
+      v = v.split("#")[0].trim();
+      v = v.replace(/^(dev|prod|local|preview):/, "");
+      const team = (m[2] ?? "").match(/#\s*team:\s*([A-Za-z0-9._-]+)/)?.[1] ?? null;
+      // The deployment lands in a URL handed to the OS opener (`cmd /c start`
+      // on Windows) — only accept real deployment-name characters, so a
+      // hostile .env.local can't smuggle shell metacharacters through.
+      return { deployment: /^[A-Za-z0-9._-]+$/.test(v) ? v : null, team };
+    }
+  } catch {
+    /* unreadable env — ignore */
+  }
+  return null;
+}
+
+/**
+ * The nearest .env.local with a CONVEX_DEPLOYMENT line, walking up from dir.
  * Used by `cvx open` (deployment) and the wrong-account guard (team).
  */
 export function projectEnv(dir: string): ProjectEnv {
   let cur = canon(dir);
   while (true) {
-    const envFile = join(cur, ".env.local");
-    if (existsSync(envFile)) {
-      try {
-        for (const line of readFileSync(envFile, "utf8").split(/\r?\n/)) {
-          const m = line.match(/^\s*CONVEX_DEPLOYMENT\s*=\s*(.+?)\s*(#.*)?$/);
-          if (m) {
-            let v = m[1].trim().replace(/^["']|["']$/g, "");
-            // strip an inline "# team: ..." comment tail and the type prefix
-            v = v.split("#")[0].trim();
-            v = v.replace(/^(dev|prod|local|preview):/, "");
-            const team = (m[2] ?? "").match(/#\s*team:\s*([A-Za-z0-9._-]+)/)?.[1] ?? null;
-            // The deployment lands in a URL handed to the OS opener
-            // (`cmd /c start` on Windows) — only accept real deployment-name
-            // characters, so a hostile .env.local can't smuggle shell
-            // metacharacters through.
-            return { deployment: /^[A-Za-z0-9._-]+$/.test(v) ? v : null, team };
-          }
-        }
-      } catch {
-        /* unreadable env — ignore */
-      }
-    }
+    const env = readEnvLocal(cur);
+    if (env) return env;
     const parent = dirname(cur);
     if (parent === cur) return { deployment: null, team: null };
     cur = parent;

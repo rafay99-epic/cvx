@@ -43,6 +43,7 @@ import {
   activeAccountName,
   projectDeployment,
   projectEnv,
+  readEnvLocal,
   ownsProject,
   deploymentOwner,
   mergeTeams,
@@ -622,7 +623,7 @@ export function cmdActivate(args: string[]) {
       return emit();
     }
     if (currentConvexToken() === token) {
-      writeActive(link.account, token);
+      if (!activeMarkerMatches(link.account, token)) writeActive(link.account, token);
       if (!quiet)
         say(`${green("●")} ${accountColor(link.account)} ${teamLabel(acc)} ${dim("(already active)")}`);
       return emit({ name: link.account, token });
@@ -820,7 +821,8 @@ export function cmdAccounts(args: string[] = []) {
   }
   if (!names.length)
     return console.log(dim("No accounts yet. Run `cvx login <name>` or `cvx add`."));
-  const active = activeAccountName(accounts);
+  // Same precedence as status: this terminal's session account wins.
+  const active = sessionAccount(accounts) ?? activeAccountName(accounts);
   console.log(bold("Accounts:"));
   for (const [name, acc] of Object.entries(accounts)) {
     const dot = name === active ? green("●") : dim("○");
@@ -944,31 +946,18 @@ export function cmdOpen(args: string[] = []) {
 
 // --- scan (auto-link discovery) ---------------------------------------------
 
-/** Does this dir's OWN .env.local declare a CONVEX_DEPLOYMENT? (No walk-up —
- *  projectEnv walks up, so we gate on the file living right here first.) */
-function isProjectDir(dir: string): boolean {
-  const envFile = join(dir, ".env.local");
-  if (!existsSync(envFile)) return false;
-  try {
-    return readFileSync(envFile, "utf8")
-      .split(/\r?\n/)
-      .some((l) => /^\s*CONVEX_DEPLOYMENT\s*=/.test(l));
-  } catch {
-    return false;
-  }
-}
-
 /**
- * Collect project dirs under `root` (up to `maxDepth` levels deep), skipping
- * hidden dirs and node_modules and never descending into a dir that is itself a
- * project. Symlinked dirs are skipped (isDirectory() is false for them), so the
- * walk can't loop.
+ * Collect Convex projects (dirs whose own .env.local declares a
+ * CONVEX_DEPLOYMENT) under `root`, up to `maxDepth` levels deep, skipping
+ * hidden dirs and node_modules and never descending into a project. Symlinked
+ * dirs are skipped (isDirectory() is false for them), so the walk can't loop.
  */
-function findProjects(root: string, maxDepth: number): string[] {
-  const out: string[] = [];
+function findProjects(root: string, maxDepth: number): Array<{ dir: string; env: ProjectEnv }> {
+  const out: Array<{ dir: string; env: ProjectEnv }> = [];
   const walk = (dir: string, depth: number) => {
-    if (isProjectDir(dir)) {
-      out.push(dir);
+    const env = readEnvLocal(dir);
+    if (env) {
+      out.push({ dir, env });
       return; // a project is a leaf — don't descend into it
     }
     if (depth <= 0) return;
@@ -1026,8 +1015,7 @@ export async function cmdScan(args: string[]) {
 
   // Offline matching first; anything it can't place is asked of Convex below.
   const unplaced: Array<{ dir: string; env: ProjectEnv; skip: string }> = [];
-  for (const dir of findProjects(root, depth)) {
-    const env = projectEnv(dir);
+  for (const { dir, env } of findProjects(root, depth)) {
     const matches = names.filter((n) => ownsProject(accounts[n], env) === true);
     if (matches.length === 1) {
       consider(dir, matches[0]);
@@ -1442,44 +1430,58 @@ export async function cmdDoctor(args: string[] = []) {
   if (tokenChecks) {
     console.log(bold("\nToken health:"));
     let verifiedAny = false;
-    for (const [name, acc] of Object.entries(accounts)) {
+    // Every account at once: offline, a sequential loop waited 12 s per account.
+    const entries = Object.entries(accounts);
+    const label = `  checking ${entries.length} account(s)…`;
+    const sp = spin(label);
+    const results = await Promise.all(
+      entries.map(async ([name, acc]) => {
+        const t = tokenOf(name, acc);
+        if (t == null) return { name, acc, unreadable: true as const };
+        try {
+          return { name, acc, teams: await verifyToken(t) };
+        } catch (e) {
+          return { name, acc, error: e as Error };
+        }
+      }),
+    );
+    sp.stop(dim(label + " done"));
+    for (const r of results) {
+      const { name, acc } = r;
       const email = acc.email ? dim(` · ${acc.email}`) : "";
-      const t = tokenOf(name, acc);
-      if (t == null) {
+      if ("unreadable" in r) {
         console.log(`  ${red("✗")} ${bold(name.padEnd(14))} ${red("token unreadable")}${email}`);
         healthy = false;
         continue;
       }
-      const sp = spin(`  checking ${name}…`);
-      try {
-        const teams = await verifyToken(t);
+      if ("teams" in r) {
         const age = ago(acc.verifiedAt);
-        sp.stop(
+        console.log(
           `  ${green("✓")} ${accountColor(name, name.padEnd(14))} ${dim("valid")}${email}${age ? dim(` · last verified ${age}`) : ""}`,
         );
         // Teams get renamed/added on Convex's side; the vault only knows what
         // it saw at `add` time. Take the fresh list so the team-mismatch guard
         // stops firing on a slug that no longer exists.
         const before = acc.teams.map((x) => x.slug).join(", ");
-        const after = teams.map((x) => x.slug).join(", ");
+        const after = r.teams.map((x) => x.slug).join(", ");
         if (before !== after) console.log(dim(`      teams: ${before || "(none)"} → ${after || "(none)"}`));
-        acc.teams = mergeTeams(acc.teams, teams);
+        acc.teams = mergeTeams(acc.teams, r.teams);
         acc.verifiedAt = new Date().toISOString();
         verifiedAny = true;
-      } catch (e) {
-        const msg = String((e as Error).message);
-        const offline = /reach Convex|timed out/.test(msg);
-        sp.stop(
-          `  ${offline ? yellow("!") : red("✗")} ${bold(name.padEnd(14))} ${offline ? dim("couldn't check (offline)") : red(msg)}${email}`,
-        );
-        if (!offline) {
-          // With --fix we offer to re-auth below, so defer the verdict; without
-          // it, this is an unfixed problem right now.
-          rejected.push(name);
-          if (!flags.fix) {
-            healthy = false;
-            console.log(dim(`      → re-authenticate with  cvx refresh ${name}`));
-          }
+        continue;
+      }
+      const msg = r.error.message;
+      const offline = isOffline(r.error);
+      console.log(
+        `  ${offline ? yellow("!") : red("✗")} ${bold(name.padEnd(14))} ${offline ? dim("couldn't check (offline)") : red(msg)}${email}`,
+      );
+      if (!offline) {
+        // With --fix we offer to re-auth below, so defer the verdict; without
+        // it, this is an unfixed problem right now.
+        rejected.push(name);
+        if (!flags.fix) {
+          healthy = false;
+          console.log(dim(`      → re-authenticate with  cvx refresh ${name}`));
         }
       }
     }

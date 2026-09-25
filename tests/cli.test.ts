@@ -1,9 +1,8 @@
 /**
  * End-to-end tests: spawn the real CLI (`bun bin/cvx.ts`) against a throwaway
- * CVX_HOME. Covers every command's observable behavior except the three flows
- * that can't run headless/sandboxed: real `login`/`refresh` (browser), the
- * interactive migration prompt (needs a PTY), and `keychain enable` (per-user
- * OS keychain). See CLAUDE.md "Safety rules".
+ * CVX_HOME. Covers every command's observable behavior except the two flows
+ * that can't run headless/sandboxed: real `login`/`refresh` (browser) and
+ * `keychain enable` (per-user OS keychain). See CLAUDE.md "Safety rules".
  */
 import { beforeAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -291,25 +290,13 @@ describe("add — argument validation (no network on failure paths)", () => {
   });
 });
 
-describe("migration", () => {
-  test("legacy vault with accounts: non-TTY defers (no prompt, no stamp)", () => {
+describe("pre-stamp vaults", () => {
+  test("a vault without schemaVersion works as-is, with no prompt", () => {
     seedAccounts();
     writeFileSync(CONFIG, "{}");
-    const r = cvx(["ls"]);
+    const r = cvx(["accounts"]);
     expect(r.code).toBe(0);
-    expect(r.all).not.toContain("migrate");
-    expect(readFileSync(CONFIG, "utf8").trim()).toBe("{}");
-  });
-  test("exempt commands never prompt on a legacy vault", () => {
-    for (const args of [["activate", "-q"], ["which", PROJ], ["prompt"], ["accounts", "--names"]]) {
-      expect(cvx(args).all).not.toContain("migrate");
-    }
-  });
-  test("empty legacy vault stamps the schema silently", () => {
-    writeFileSync(ACCOUNTS, "{}");
-    writeFileSync(CONFIG, "{}");
-    cvx(["ls"]);
-    expect(JSON.parse(readFileSync(CONFIG, "utf8")).schemaVersion).toBe(2);
+    expect(r.out).toContain("work");
   });
 });
 

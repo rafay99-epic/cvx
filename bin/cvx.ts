@@ -9,7 +9,6 @@
  */
 
 import { ensureVault, isFirstRun, markWelcomed } from "../src/store";
-import { maybeMigrate, MIGRATION_EXEMPT } from "../src/migrate";
 import { die, help, welcome, bold } from "../src/ui";
 import {
   cmdAdd,
@@ -44,16 +43,13 @@ import {
 import { cmdUpgrade } from "../src/upgrade";
 import { cmdExport, cmdImport } from "../src/transfer";
 
-async function main() {
-  ensureVault();
-  const [cmd, ...rest] = process.argv.slice(2);
+// Run on every cd or prompt: they only read the vault (missing files read as
+// empty), so they skip the vault setup's filesystem checks.
+const HOT = new Set(["activate", "prompt", "which"]);
 
-  // One-time, mandatory vault upgrade for users coming from an older version.
-  // Skipped for hot/scripted commands (the cd-hook, completion, prompt, …) and
-  // for `accounts --names` (used by completion scripts) so they never block.
-  if (!MIGRATION_EXEMPT.has(cmd) && !(cmd === "accounts" && rest.includes("--names"))) {
-    await maybeMigrate();
-  }
+async function main() {
+  const [cmd, ...rest] = process.argv.slice(2);
+  if (!HOT.has(cmd)) ensureVault();
 
   switch (cmd) {
     case "add":
