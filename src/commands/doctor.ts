@@ -103,7 +103,7 @@ export async function cmdDoctor(args: string[] = []) {
     console.log(`  ${yellow("!")} disabled          ${yellow("cvx is paused — run `cvx enable` to resume switching")}`);
 
   // Hook presence AND freshness: an rc still carrying an older snippet keeps
-  // the old cd-only behavior even after the binary upgrades — flag it.
+  // that snippet's behavior even after the binary upgrades — flag it.
   // PowerShell's profile has no fixed path, so it's only checked when it's
   // this machine's shell.
   const shells: Shell[] = [...(Object.keys(RC_FILES) as Shell[]), ...(detectShell() === "powershell" ? ["powershell" as const] : [])];

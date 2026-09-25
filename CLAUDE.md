@@ -59,9 +59,6 @@ authored by the repo owner, full stop.
   without CVX_HOME set would bind the REAL home directory.
 - `CVX_PASSPHRASE` makes `cvx vault …` and `cvx export`/`import`
   non-interactive — tests use it so nothing ever prompts.
-- The interactive migration prompt needs a real PTY, which `bun test` doesn't
-  provide — that one flow is covered by the manual recipe in
-  `scripts/sandbox.sh` (make the vault legacy, run any interactive command).
 - Anything touching `verifyToken` hits the network; tests only assert on its
   error paths and must tolerate both online (401) and offline messages.
 
@@ -96,7 +93,17 @@ authored by the repo owner, full stop.
   then a SHA-256 token fingerprint. The cd-hook fast path trusts it only when
   the fingerprint matches the current global token.
 - `cvx activate` runs on every `cd` via shell hooks — treat it as a hot path
-  (no network, no extra process spawns, must never throw).
+  (no network, no extra process spawns, must never throw). Registry entries
+  marked `hot` skip vault setup; ownership checks on this path are offline
+  (`ownsProject`), network checks (`findOwner`) run only in typed commands.
+- Commands live in `src/commands/<area>.ts`; `src/commands/registry.ts` lists
+  each one once and generates dispatch, `cvx help` and the completion scripts.
+  A new command is one registry entry (tests/registry.test.ts checks help,
+  completions and the man page cover it).
+- Teams are matched by identity, not slug (slugs are editable on Convex):
+  confirmed `deployments[]` first, then current slugs or `aliases`.
+- Account colors are stored per account (`color`) and assigned on add from
+  `ACCOUNT_PALETTE` in colors.ts; `site/vex.js` keeps a copy of the palette.
 - Per-session isolation: the hooks eval `activate --env`, which exports
   `CONVEX_OVERRIDE_ACCESS_TOKEN` (+ `CVX_ACCOUNT`) — the Convex CLI reads that
   env var above the global config, so parallel terminals hold different

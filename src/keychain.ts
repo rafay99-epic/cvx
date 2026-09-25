@@ -6,7 +6,7 @@
  *             handed back to the caller to store in the vault (no external store)
  *
  * The abstraction returns one of three record shapes per account token:
- *   { plain }       inline plaintext (default file vault)
+ *   { token }       inline plaintext (default file vault)
  *   { keychain }    secret lives in the OS keychain, keyed by account name
  *   { enc }         DPAPI ciphertext, stored in the vault file (Windows)
  */

@@ -217,7 +217,7 @@ export async function cmdRm(args: string[]) {
   const acc = requireAccount(accounts, name);
   const nLinks = Object.values(readLinks()).filter((a) => a === name).length;
   // Confirm on a real terminal (skip with --force/--yes); piped/scripted
-  // callers keep the old immediate behavior.
+  // callers remove immediately.
   if (process.stdin.isTTY && !flags.force && !flags.yes) {
     const yn = await ask(
       `Remove account ${accountColor(name)}${nLinks ? ` and its ${nLinks} link(s)` : ""}? [y/N] `,

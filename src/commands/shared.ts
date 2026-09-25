@@ -70,6 +70,15 @@ function rememberDeployment(acc: Account, dep: string) {
   if (!acc.deployments?.includes(dep)) acc.deployments = [...(acc.deployments ?? []), dep];
 }
 
+// Keychain/DPAPI reads spawn a process; doctor and scan ask about many
+// projects, so read each account's token once. Keyed by the record, so a
+// replaced record (a refresh) is read fresh.
+const tokenCache = new WeakMap<Account, string | null>();
+function cachedToken(name: string, acc: Account): string | null {
+  if (!tokenCache.has(acc)) tokenCache.set(acc, tokenOf(name, acc));
+  return tokenCache.get(acc) ?? null;
+}
+
 /**
  * Ask Convex which stored account owns this project's deployment, trying
  * `prefer` first. Network, so never on the cd hot path. The owner gets the
@@ -88,7 +97,7 @@ export async function findOwner(
   const names = Object.keys(accounts).sort((a, b) => Number(b === prefer) - Number(a === prefer));
   let answered = false;
   for (const name of names) {
-    const token = tokenOf(name, accounts[name]);
+    const token = cachedToken(name, accounts[name]);
     if (token == null) continue;
     try {
       const owner = await deploymentOwner(token, dep);

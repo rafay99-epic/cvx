@@ -90,11 +90,7 @@ export function banner(): string {
   )}\n`;
 }
 
-// --- Vex, the account chameleon ----------------------------------------------
-// Small, alive, expressive. A chameleon changes color to match its
-// surroundings; cvx changes your account to match your project — so Vex wears
-// the ACTIVE account's color and her face reacts to what's going on. Her tail
-// is the little `~@` curl.
+// --- Vex, printed (her moods and faces live in vex.ts) ------------------------
 
 /** Vex, one glyph tall. Pass an account name to dress her in its color. */
 export function vex(mood: VexMood = "happy", accountName?: string | null): string {

@@ -10,14 +10,12 @@ cvx \- switch Convex accounts per project, automatically
 (\fBcvx\fR) lets you run several Convex accounts across many projects at once
 without logging in and out. The Convex CLI reads your identity from a single
 global file, \fI~/.convex/config.json\fR; \fBcvx\fR keeps a private vault of
-your account tokens and a map of project \(-> account, then rewrites that one
-file to the linked account whenever you \fBcd\fR into a project (via a zsh
-\fBchpwd\fR hook). No deploy keys, and no tokens are stored inside your
-repositories.
-.PP
-Because a running \fBconvex dev\fR caches its deployment credentials at startup,
-swapping the global file afterwards does not disturb sessions already running \(em
-so several accounts can run side by side in separate terminals.
+your account tokens and a map of project \(-> account. Whenever you \fBcd\fR into
+a linked project, the shell hook exports \fBCONVEX_OVERRIDE_ACCESS_TOKEN\fR for
+that account (the Convex CLI reads it above the global file), so each terminal
+holds its own account and several run side by side. The global file is also
+rewritten, as a fallback for tools outside a hooked shell. No deploy keys, and
+no tokens are stored inside your repositories.
 .SH COMMANDS
 .SS Setup
 .TP
@@ -158,11 +156,13 @@ was installed (Homebrew, npm/bun, or GitHub tarball).
 Check your setup and report problems: Node/npx availability, whether you have a
 Convex login, vault integrity, the token storage backend, the active account,
 and whether the shell hook is installed. Also pings Convex to check each stored
-token's health (skip that with \fB--no-tokens\fR). With \fB--fix\fR it repairs
-what it can \(em installs a missing shell hook, prunes dead links, clears a
-stale active marker, and (interactively) offers to re-authenticate rejected
-tokens; problems it fixes no longer force a non-zero exit. Exits non-zero on any
-remaining problem.
+token's health, refreshes each account's team list, and asks which account owns
+each linked project's deployment (skip the network checks with
+\fB--no-tokens\fR). With \fB--fix\fR it repairs what it can \(em installs a
+missing shell hook, relinks projects to the account Convex says owns them,
+prunes dead links, clears a stale active marker, gives accounts that share a
+color their own, and (interactively) offers to re-authenticate rejected tokens.
+Exits non-zero on any problem it didn't fix.
 .TP
 .B cvx welcome
 Show the welcome screen again.

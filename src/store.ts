@@ -358,8 +358,8 @@ export function readActive(): string | null {
 
 /**
  * One read of the marker: is it `name`, with a fingerprint matching `token`?
- * Markers written without a fingerprint (or in the old one-line format) never
- * match, which safely forces the caller onto the slow verified path once.
+ * A marker without a fingerprint line never matches, which safely forces the
+ * caller onto the slow verified path once.
  */
 export function activeMarkerMatches(name: string, token: string): boolean {
   const [n, fp] = readActiveLines();
