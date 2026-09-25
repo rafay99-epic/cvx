@@ -1,0 +1,25 @@
+src/store.ts
+  s_89e8a44c3e8ebc::t_a30a3fb61ed054 74-77,301,306-315,317-318
+src/transfer.ts
+  s_89e8a44c3e8ebc::t_400a652907d535 21-22,30,46,160-161,163-164
+tests/cli.test.ts
+  s_89e8a44c3e8ebc::t_fc76bc2aae22e2 460,462,468,490
+tests/transfer.test.ts
+  s_89e8a44c3e8ebc::t_47d71a50c870e9 109-119
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "9f32b41e172fab95ec09ee840ffb279a42d8ba93",
+  "prompts": {},
+  "sessions": {
+    "s_89e8a44c3e8ebc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5fef3415-ac2c-45f5-b32f-2921fa052ef0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Abdul Rafay <99marafay@gmail.com>"
+    }
+  }
+}
