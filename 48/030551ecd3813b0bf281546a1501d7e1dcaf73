@@ -1,0 +1,32 @@
+CLAUDE.md
+  h_1e0ba4a9f2a4b4 96-106
+README.md
+  h_1e0ba4a9f2a4b4 23-25,50-56,59-65,159-164,215,253-256,258-260,262-264,285-288,303
+man/cvx.1
+  h_1e0ba4a9f2a4b4 13-18,159-165
+src/commands/accounts.ts
+  h_1e0ba4a9f2a4b4 220
+src/commands/doctor.ts
+  h_1e0ba4a9f2a4b4 106
+src/commands/shared.ts
+  h_1e0ba4a9f2a4b4 73-81,100
+src/keychain.ts
+  h_1e0ba4a9f2a4b4 9
+src/store.ts
+  h_1e0ba4a9f2a4b4 361-362
+src/system.ts
+  h_1e0ba4a9f2a4b4 51-63
+src/ui.ts
+  h_1e0ba4a9f2a4b4 93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "48030551ecd3813b0bf281546a1501d7e1dcaf73",
+  "prompts": {},
+  "humans": {
+    "h_1e0ba4a9f2a4b4": {
+      "author": "Abdul Rafay <99marafay@gmail.com>"
+    }
+  }
+}
