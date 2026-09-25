@@ -18,7 +18,8 @@ import {
   makeTokenRecord,
   storageBackend,
   validAccountName,
-  type Team,
+  accountMeta,
+  type AccountMeta,
   type Links,
 } from "./store";
 import { parseFlags } from "./args";
@@ -26,7 +27,7 @@ import { die, bold, dim, green, yellow, askHidden, vexTag } from "./ui";
 
 // An account travels with its token RESOLVED inline, so a keychain-backed record
 // still imports portably on a machine that has never seen the original keychain.
-type ExportedAccount = { token: string; teams: Team[]; addedAt: string; verifiedAt?: string };
+type ExportedAccount = AccountMeta & { token: string };
 type Payload = { accounts: Record<string, ExportedAccount>; links: Links };
 
 const DEFAULT_FILE = "cvx-vault.export";
@@ -40,9 +41,8 @@ export function packVault(passphrase: string): string {
   for (const [name, acc] of Object.entries(accounts)) {
     const token = tokenOf(name, acc);
     // Bail before writing anything — a partial/tokenless export is worse than none.
-    if (token == null)
-      die(`Couldn't read the token for ${bold(name)}. Aborting export (nothing was written).`);
-    exported[name] = { token, teams: acc.teams, addedAt: acc.addedAt, verifiedAt: acc.verifiedAt };
+    if (token == null) throw new Error(`Couldn't read the token for ${name}. Aborting export (nothing was written).`);
+    exported[name] = { ...accountMeta(acc), token };
   }
   const payload: Payload = { accounts: exported, links: readLinks() };
   const salt = newSalt();
@@ -156,10 +156,12 @@ export async function cmdImport(args: string[]) {
       if (added + overwritten) writeAccounts(accounts);
       die(`Couldn't store the token for ${bold(name)}: ${(e as Error).message}`);
     }
+    // accountMeta drops any secret fields a crafted file might carry (a stray
+    // `pw` would outrank the new token in tokenOf).
     accounts[name] = {
-      teams: inc.teams ?? [],
+      ...accountMeta(inc),
+      teams: Array.isArray(inc.teams) ? inc.teams : [],
       addedAt: inc.addedAt ?? new Date().toISOString(),
-      verifiedAt: inc.verifiedAt,
       ...rec,
     };
     exists ? overwritten++ : added++;

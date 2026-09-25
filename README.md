@@ -20,8 +20,9 @@ same time.
 Meet **Vex**, the account chameleon. A chameleon changes color to match its
 surroundings; cvx changes your account to match your project — so Vex wears
 the **active account's color** and her face reacts to what's going on. Every
-account gets a stable color of its own, used across `accounts`, `ls`, and
-switch messages, so you learn to recognize where you are at a glance.
+account gets its own color when you add it (no two share one, and none look
+like a warning), used across `accounts`, `ls`, and switch messages, so you
+learn to recognize where you are at a glance.
 
 ## Purpose
 
@@ -46,17 +47,22 @@ The Convex CLI decides *which account you are* by reading a single global file:
 ```
 
 `cvx` keeps a private vault of your account tokens and a map of
-project → account. A shell hook calls `cvx activate` on every `cd`, and also
-re-checks at the prompt so a second terminal swapping the global file gets
-noticed — a spawn-free freshness check means nothing runs on a normal prompt.
-When you enter a linked folder (or the check trips) it rewrites that one
-global file to the linked account. Nothing is injected at runtime, nothing
-lives in your repos.
+project → account. A shell hook calls `cvx activate` on every `cd`. In a
+hooked shell it exports `CONVEX_OVERRIDE_ACCESS_TOKEN` for the linked account,
+which the Convex CLI reads above the global file, so each terminal holds its
+own account. It also rewrites the global file, as a fallback for tools that
+don't run under a hooked shell, and re-checks at the prompt when another
+terminal changed it (a spawn-free freshness check, so nothing runs on a normal
+prompt). Nothing lives in your repos.
 
 ```
-~/.convex-switch/
-  accounts.json   # name -> { token, teams }        (chmod 600)
-  links.json      # /abs/project/path -> account     (chmod 600)
+~/.convex-switch/                                  (dir 700, files 600)
+  accounts.json   # name -> { token, teams, deployments, color, email }
+  links.json      # /abs/project/path -> account
+  config.json     # storage backend, disabled flag
+  active          # which account the global file holds (+ token fingerprint)
+  vault.json      # passphrase-vault salt (only with `cvx vault encrypt`)
+  backups/        # the last 5 vault snapshots, for `cvx undo`
 ```
 
 Because a running `convex dev` caches its deployment credentials at startup,
@@ -150,6 +156,12 @@ cross-checks that team against the linked account's teams and warns loudly on
 a mismatch — catching "about to deploy with the wrong account" *before* it
 happens. `cvx status` shows the same warning.
 
+Renaming a team in the Convex dashboard doesn't trip it. Team slugs are
+editable, so cvx matches by identity: `cvx link`, `use`, `scan` and `doctor`
+ask Convex which account owns the project's deployment and remember the
+answer, and a team's old slugs are kept as aliases because `.env.local` notes
+keep the old one. The cd-hook check itself stays offline.
+
 ## Daily use
 
 ```bash
@@ -200,7 +212,7 @@ change).
 | `cvx vault <status\|encrypt\|decrypt\|unlock\|lock>` | Passphrase-encrypt stored tokens (unlock once per session) |
 | `cvx export [file]` / `cvx import <file>` | Encrypted vault backup / restore — new-machine setup in one command |
 | `cvx upgrade` | Check for a newer release and print the exact upgrade command |
-| `cvx doctor [--fix]` | Check setup + per-account token health; also refreshes each account's stored team list (`--fix` repairs hook/links/marker/tokens) |
+| `cvx doctor [--fix]` | Check setup, per-account token health, and which account Convex says owns each linked project; refreshes stored teams (`--fix` repairs hook, links, marker, colors, tokens) |
 | `cvx completions <shell>` | Print a completion script (zsh/bash/fish/powershell) |
 | `cvx hook [--install] [--shell …]` | Install the shell hook (zsh/bash/fish/nu/powershell); `--install` also upgrades an outdated installed hook in place |
 
@@ -232,31 +244,24 @@ cvx completions zsh >> ~/.zshrc         # tab-complete commands + account names
 # [custom.cvx]  command = "cvx prompt"  when = "true"  format = "[($output )]($style)"
 ```
 
-## Upgrading from an older version
-
-The vault is schema-versioned. The first time you run an interactive `cvx`
-command after updating from an older release, cvx shows a one-time prompt and,
-on confirmation, re-secures your tokens in the file vault (chmod 600)
-and upgrades the vault format. It's mandatory and runs once — you never see it
-again. The cd-hook and scripts keep working throughout; the prompt only appears
-in an interactive terminal. (Migration deliberately stays out of the OS keychain
-to avoid keychain prompts during a mandatory step — opt in later with
-`cvx keychain enable`.)
-
 ## Project layout
 
 The CLI is split into small modules; `bun build --compile` bundles them all into
 a single binary, so the split costs nothing at build time.
 
 ```
-bin/cvx.ts        entry point + command dispatch
+bin/cvx.ts        entry point: dispatches through the command registry
+src/commands/     one module per area (accounts, links, status, storage,
+                  doctor, hook); registry.ts lists every command once and
+                  drives dispatch, `cvx help` and the completion scripts
 src/paths.ts      the ONE place HOME is resolved (CVX_HOME sandbox support)
-src/store.ts      data layer: vault I/O, the config swap, token verify
-src/ui.ts         the gradient logo, Vex the mascot, welcome, help
+src/store.ts      data layer: vault I/O, the config swap, Convex API calls
+src/ui.ts         the gradient logo, welcome, generated help
+src/vex.ts        Vex the mascot: moods and faces
 src/colors.ts     the palette: brand gradient + per-account colors (re-theme here)
-src/spinner.ts    braille spinner for network waits (TTY only)
-src/commands.ts   one function per subcommand
-src/hooks.ts      zsh / bash / PowerShell shell-hook snippets
+src/spinner.ts    Vex spinner for network waits (TTY only)
+src/version.ts    the version string, stamped by the release workflow
+src/hooks.ts      zsh / bash / fish / nu / PowerShell shell-hook snippets
 src/keychain.ts   OS keychain / DPAPI token backends
 src/crypto.ts     scrypt + AES-256-GCM (vault encryption, export files)
 src/vault.ts      passphrase-encrypted vault + session unlock
@@ -277,11 +282,10 @@ bun test          # full suite: parser + store units, and an e2e matrix that
                   # drives every command against a throwaway CVX_HOME
 ```
 
-The suite runs in ~2s, needs no setup, and never touches your real vault —
-CI (`.github/workflows/test.yml`) runs it on every PR. Three flows can't run
-headless and stay manual (use the sandbox below): real `cvx login` (browser),
-the interactive migration prompt (needs a PTY), and `cvx keychain enable`
-(the OS keychain is per-user).
+The suite runs in ~10s, needs no setup, and never touches your real vault —
+CI (`.github/workflows/test.yml`) runs it on every PR. Two flows can't run
+headless and stay manual (use the sandbox below): real `cvx login` (browser)
+and `cvx keychain enable` (the OS keychain is per-user).
 
 ## Testing safely (sandbox)
 
@@ -296,7 +300,7 @@ scripts/sandbox.sh --copy-vault   # same, but seeded with a COPY of your real va
 ```
 
 Inside that shell `cvx` is the fresh build and every command — `link`,
-`activate`, `rm`, even the migration prompt and `hook --install` — reads and
+`activate`, `rm`, and `hook --install` — reads and
 writes only the sandbox. `exit` to leave; your real setup is never touched.
 Works without the script too: `CVX_HOME=/tmp/try cvx status`.
 

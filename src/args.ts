@@ -9,8 +9,15 @@
 // (`cvx link --force myacct` keeps `myacct` positional).
 const VALUE_FLAGS = new Set(["token", "shell", "depth", "email"]);
 
-export function parseFlags(args: string[]): { _: string[]; [k: string]: any } {
-  const out: { _: string[]; [k: string]: any } = { _: [] };
+/**
+ * Positionals in `_`; every flag seen maps to its value, or `true` for a
+ * switch (and for a value flag given without one). `--key=value` works for
+ * any flag.
+ */
+export type Flags = { _: string[]; [flag: string]: string | true | string[] | undefined };
+
+export function parseFlags(args: string[]): Flags {
+  const out: Flags = { _: [] };
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a.startsWith("--")) {

@@ -7,9 +7,10 @@
  */
 
 import { dim, fg256 } from "./colors";
+import { FACE, RESTING, TAIL } from "./vex";
 
-// Tail wag + a blink every full cycle. 114 = Vex's resting green.
-const FRAMES = ["(◕‿◕)~@", "(◕‿◕)∿@", "(◕‿◕)~@", "(–‿–)∿@"];
+// Tail wag + a blink every full cycle.
+const FRAMES = [FACE.happy + TAIL, FACE.happy + "∿@", FACE.happy + TAIL, FACE.blink + "∿@"];
 
 export type Spinner = { stop(finalLine: string): void };
 
@@ -24,7 +25,7 @@ export function spin(label: string): Spinner {
   let i = 0;
   process.stdout.write("\x1b[?25l"); // hide cursor
   const draw = () =>
-    process.stdout.write(`\r${fg256(114, FRAMES[i++ % FRAMES.length])} ${dim(label)}`);
+    process.stdout.write(`\r${fg256(RESTING, FRAMES[i++ % FRAMES.length])} ${dim(label)}`);
   draw();
   const timer = setInterval(draw, 140);
   // Ctrl-C mid-spin must not leave the terminal with a hidden cursor.

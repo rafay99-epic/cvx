@@ -4,13 +4,13 @@
  * presentation, no fs/network.
  */
 
-import { VERSION, VAULT, shortPath } from "./store";
+import { VAULT, shortPath } from "./store";
+import { VERSION } from "./version";
+import { FACE, RESTING, TAIL, type VexMood } from "./vex";
 import type { Account } from "./store";
 import {
   bold,
   dim,
-  green,
-  yellow,
   red,
   cyan,
   fg256,
@@ -90,39 +90,12 @@ export function banner(): string {
   )}\n`;
 }
 
-// --- Vex, the account chameleon ----------------------------------------------
-// Small, alive, expressive. A chameleon changes color to match its
-// surroundings; cvx changes your account to match your project — so Vex wears
-// the ACTIVE account's color and her face reacts to what's going on. Her tail
-// is the little `~@` curl.
-
-export type VexMood =
-  | "happy"
-  | "wink"
-  | "blink"
-  | "alarm"
-  | "sleepy"
-  | "curious"
-  | "sad"
-  | "excited";
-
-const FACE: Record<VexMood, string> = {
-  happy: "(◕‿◕)",
-  wink: "(◕‿<)",
-  blink: "(–‿–)",
-  alarm: "(⊙︵⊙)",
-  sleepy: "(–ᴗ–)ᶻ",
-  curious: "(◕.◕)?",
-  sad: "(◕︵◕)",
-  excited: "(☆‿☆)",
-};
-
-const VEX_DEFAULT = 114; // resting chameleon green
+// --- Vex, printed (her moods and faces live in vex.ts) ------------------------
 
 /** Vex, one glyph tall. Pass an account name to dress her in its color. */
 export function vex(mood: VexMood = "happy", accountName?: string | null): string {
-  const code = accountName ? accountColorCode(accountName) : VEX_DEFAULT;
-  return fg256(code, `${FACE[mood]}~@`);
+  const code = accountName ? accountColorCode(accountName) : RESTING;
+  return fg256(code, FACE[mood] + TAIL);
 }
 
 /**
@@ -144,18 +117,18 @@ async function vexIntro(): Promise<void> {
     return;
   }
   const frames: Array<[VexMood, number]> = [
-    ["blink", VEX_DEFAULT],
-    ["happy", VEX_DEFAULT],
+    ["blink", RESTING],
+    ["happy", RESTING],
     ["happy", 45],
     ["happy", 213],
     ["happy", 214],
     ["happy", 141],
-    ["blink", VEX_DEFAULT],
-    ["happy", VEX_DEFAULT],
+    ["blink", RESTING],
+    ["happy", RESTING],
   ];
   process.stdout.write("\x1b[?25l");
   for (const [mood, code] of frames) {
-    process.stdout.write(`\r  ${fg256(code, FACE[mood] + "~@")}  ${dim("…")}`);
+    process.stdout.write(`\r  ${fg256(code, FACE[mood] + TAIL)}  ${dim("…")}`);
     await new Promise((r) => setTimeout(r, 130));
   }
   process.stdout.write(`\r\x1b[2K\x1b[?25h  ${vex()}  ${tag}\n\n`);
@@ -184,50 +157,30 @@ export async function welcome(): Promise<void> {
 
 // --- Help -------------------------------------------------------------------
 
+export type HelpGroup = "setup" | "wire" | "everyday" | "manage";
+
+// Help sections in order, with the non-cvx lines that belong in each.
+const HELP_GROUPS: Array<{ id: HelpGroup; title: string; note?: string; extra?: Array<[string, string]> }> = [
+  { id: "setup", title: "Setup", note: "(one-time per account)", extra: [["npx convex login", "log into an account in your browser"]] },
+  { id: "wire", title: "Wire projects to accounts" },
+  { id: "everyday", title: "Everyday", extra: [["cd <project> && bun run dev", "the linked account is activated automatically"]] },
+  { id: "manage", title: "Manage" },
+];
+
 const h = (s: string) => bold(cyan(s));
+const helpLine = (usage: string, summary: string) =>
+  `  ${usage.length >= 30 ? usage + "  " : usage.padEnd(30)}${summary}`;
 
-export function help(): void {
+/** The help screen, generated from the command registry (commands without a usage are hidden). */
+export function help(commands: readonly { usage?: string; summary?: string; group?: HelpGroup }[]): void {
   console.log(banner());
-  console.log(`  ${dim("switch Convex accounts per project, automatically")}
-
-${h("Setup")} ${dim("(one-time per account)")}
-  npx convex login              log into an account in your browser
-  cvx add [name]                store the current login as <name> (verified)
-  cvx login <name>              do both: login, then store as <name>
-  cvx refresh <account>         re-authenticate an account (refresh its token)
-
-${h("Wire projects to accounts")}
-  cvx link <account> [path]     link a project dir (default: cwd) to an account
-  cvx unlink [path]             remove a link
-  cvx scan [dir]                auto-discover projects and link them by team
-  cvx hook --install            add the auto-switch hook (zsh/bash/fish/nu/pwsh)
-  cvx completions <shell>       print a shell completion script
-
-${h("Everyday")}
-  cd <project> && bun run dev   the linked account is activated automatically
-  cvx use [account]             activate by name — or pick one if unlinked
-  cvx run <account> -- <cmd>    run one command as <account> (no global change)
-  cvx open                      open the Convex dashboard for this project
-  cvx status [--json]           show active account + this dir's link
-  cvx accounts                  list stored accounts (+ last verified)
-  cvx ls                        list linked projects
-
-${h("Manage")}
-  cvx rename <old> <new>        rename an account, keep its links
-  cvx email <account> [addr]    label an account with its email (shown in lists)
-  cvx rm <account>              forget an account (asks first; undo-able)
-  cvx disable · enable          pause cvx (cd stops switching) · resume
-  cvx reset                     delete ALL accounts, links & sessions (asks first)
-  cvx undo [--list]             restore the vault to before the last change
-  cvx refresh --all             re-authenticate every stored account
-  cvx which [path]              print the account name for a dir (scripting)
-  cvx prompt [--starship]       print the active account · starship config
-  cvx keychain <status|…>       store tokens in the OS keychain
-  cvx vault <status|…>          passphrase-encrypt stored tokens
-  cvx export · import <file>    encrypted vault backup · restore (new machine)
-  cvx doctor [--fix] · upgrade  check setup + token health (--fix repairs) · updates
-  cvx welcome · version         the welcome screen · the version
-
-Vault: ${cyan(shortPath(VAULT))}  ${dim("(chmod 600, never in your projects)")}
-`);
+  console.log(`  ${dim("switch Convex accounts per project, automatically")}\n`);
+  for (const g of HELP_GROUPS) {
+    console.log(h(g.title) + (g.note ? " " + dim(g.note) : ""));
+    for (const [usage, summary] of g.extra ?? []) console.log(helpLine(usage, summary));
+    for (const c of commands)
+      if (c.group === g.id && c.usage) console.log(helpLine("cvx " + c.usage, c.summary ?? ""));
+    console.log();
+  }
+  console.log(`Vault: ${cyan(shortPath(VAULT))}  ${dim("(chmod 600, never in your projects)")}`);
 }

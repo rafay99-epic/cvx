@@ -26,21 +26,6 @@ export function hasCommand(cmd: string): boolean {
 }
 
 /**
- * Run a child process inheriting our stdio, the drop-in replacement for
- * cmdRun's spawn. The old `spawnSync(cmd, args, { shell: isWindows })` was
- * broken on Windows: with shell:true Node joins argv with spaces and cmd.exe
- * re-splits it, shredding any argument that contains a space or quote.
- *
- *  - POSIX: spawn directly, no shell — args pass through verbatim (unchanged).
- *  - Windows: resolve the executable via PATH + PATHEXT (resolveWindowsCommand).
- *      * `.cmd`/`.bat` shims (e.g. npx.cmd) are not executable images and can
- *        only run through cmd.exe — see the strategy note at the spawn site.
- *      * a real `.exe` / extensionless native binary skips the shell entirely,
- *        so its arguments arrive verbatim.
- *    An unresolvable name falls through as-is, letting spawnSync raise ENOENT
- *    which cmdRun already reports as "Command not found".
- */
-/**
  * Resolve a bare command name on Windows via PATH + PATHEXT, the way cmd.exe
  * itself does. Bun.which only finds executable IMAGES (.exe) — npx and most
  * Node-tool entry points are .cmd shims it never sees. Returns the input
@@ -63,6 +48,19 @@ function resolveWindowsCommand(cmd: string): string {
   return cmd;
 }
 
+/**
+ * Run a child process inheriting our stdio, with arguments passed through
+ * verbatim. `shell: true` is avoided on Windows: Node would join argv with
+ * spaces and cmd.exe re-split it, shredding arguments with spaces or quotes.
+ *
+ *  - POSIX: spawn directly, no shell.
+ *  - Windows: resolve the executable via PATH + PATHEXT (resolveWindowsCommand).
+ *      * `.cmd`/`.bat` shims (e.g. npx.cmd) are not executable images and can
+ *        only run through cmd.exe — see the strategy note at the spawn site.
+ *      * a real `.exe` / extensionless native binary skips the shell entirely.
+ *    An unresolvable name falls through as-is, letting spawnSync raise ENOENT
+ *    which cmdRun reports as "Command not found".
+ */
 export function runInherit(
   cmd: string,
   args: string[],

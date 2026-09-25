@@ -9,138 +9,26 @@
  */
 
 import { ensureVault, isFirstRun, markWelcomed } from "../src/store";
-import { maybeMigrate, MIGRATION_EXEMPT } from "../src/migrate";
 import { die, help, welcome, bold } from "../src/ui";
-import {
-  cmdAdd,
-  cmdLogin,
-  cmdRefresh,
-  cmdLink,
-  cmdUnlink,
-  cmdRename,
-  cmdRm,
-  cmdEmail,
-  cmdReset,
-  cmdDisable,
-  cmdEnable,
-  cmdActivate,
-  cmdUse,
-  cmdScan,
-  cmdRun,
-  cmdOpen,
-  cmdStatus,
-  cmdAccounts,
-  cmdLs,
-  cmdWhich,
-  cmdPrompt,
-  cmdVersion,
-  cmdDoctor,
-  cmdKeychain,
-  cmdVault,
-  cmdUndo,
-  cmdCompletions,
-  cmdHook,
-} from "../src/commands";
-import { cmdUpgrade } from "../src/upgrade";
-import { cmdExport, cmdImport } from "../src/transfer";
+import { COMMANDS, findCommand } from "../src/commands/registry";
 
 async function main() {
-  ensureVault();
-  const [cmd, ...rest] = process.argv.slice(2);
+  const [name, ...rest] = process.argv.slice(2);
+  const cmd = name === undefined ? undefined : findCommand(name);
+  // The cd hook and prompt only read the vault (missing files read as empty),
+  // so they skip the setup's filesystem checks.
+  if (!cmd?.hot) ensureVault();
 
-  // One-time, mandatory vault upgrade for users coming from an older version.
-  // Skipped for hot/scripted commands (the cd-hook, completion, prompt, …) and
-  // for `accounts --names` (used by completion scripts) so they never block.
-  if (!MIGRATION_EXEMPT.has(cmd) && !(cmd === "accounts" && rest.includes("--names"))) {
-    await maybeMigrate();
-  }
-
-  switch (cmd) {
-    case "add":
-      return cmdAdd(rest);
-    case "login":
-      return cmdLogin(rest);
-    case "refresh":
-      return cmdRefresh(rest);
-    case "link":
-      return cmdLink(rest);
-    case "unlink":
-      return cmdUnlink(rest);
-    case "rename":
-    case "mv":
-      return cmdRename(rest);
-    case "rm":
-    case "remove":
-      return cmdRm(rest);
-    case "email":
-      return cmdEmail(rest);
-    case "reset":
-    case "nuke":
-      return cmdReset(rest);
-    case "disable":
-      return cmdDisable();
-    case "enable":
-      return cmdEnable();
-    case "activate":
-      return cmdActivate(rest);
-    case "use":
-      return cmdUse(rest);
-    case "scan":
-      return cmdScan(rest);
-    case "run":
-      return cmdRun(rest);
-    case "open":
-      return cmdOpen(rest);
-    case "status":
-      return cmdStatus(rest);
-    case "accounts":
-      return cmdAccounts(rest);
-    case "ls":
-    case "list":
-      return cmdLs();
-    case "which":
-      return cmdWhich(rest);
-    case "prompt":
-      return cmdPrompt(rest);
-    case "undo":
-      return cmdUndo(rest);
-    case "keychain":
-      return cmdKeychain(rest);
-    case "vault":
-      return cmdVault(rest);
-    case "export":
-      return cmdExport(rest);
-    case "import":
-      return cmdImport(rest);
-    case "upgrade":
-      return cmdUpgrade();
-    case "completions":
-    case "completion":
-      return cmdCompletions(rest);
-    case "hook":
-      return cmdHook(rest);
-    case "doctor":
-      return cmdDoctor(rest);
-    case "welcome":
+  if (name === undefined) {
+    // Bare `cvx`: greet on the very first run, otherwise show help.
+    if (isFirstRun()) {
+      markWelcomed();
       return welcome();
-    case "version":
-    case "-v":
-    case "--version":
-      return cmdVersion();
-    case "help":
-    case "-h":
-    case "--help":
-      return help();
-    case undefined:
-      // Bare `cvx`: greet on the very first run, otherwise show help.
-      if (isFirstRun()) {
-        markWelcomed();
-        return welcome();
-      }
-      return help();
-    default:
-      die(`Unknown command: ${cmd}\nRun ${bold("cvx help")}.`);
+    }
+    return help(COMMANDS);
   }
+  if (!cmd) die(`Unknown command: ${name}\nRun ${bold("cvx help")}.`);
+  return cmd.run(rest);
 }
 
 main().catch((e) => {

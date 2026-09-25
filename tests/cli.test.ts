@@ -1,9 +1,8 @@
 /**
  * End-to-end tests: spawn the real CLI (`bun bin/cvx.ts`) against a throwaway
- * CVX_HOME. Covers every command's observable behavior except the three flows
- * that can't run headless/sandboxed: real `login`/`refresh` (browser), the
- * interactive migration prompt (needs a PTY), and `keychain enable` (per-user
- * OS keychain). See CLAUDE.md "Safety rules".
+ * CVX_HOME. Covers every command's observable behavior except the two flows
+ * that can't run headless/sandboxed: real `login`/`refresh` (browser) and
+ * `keychain enable` (per-user OS keychain). See CLAUDE.md "Safety rules".
  */
 import { beforeAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -291,25 +290,13 @@ describe("add — argument validation (no network on failure paths)", () => {
   });
 });
 
-describe("migration", () => {
-  test("legacy vault with accounts: non-TTY defers (no prompt, no stamp)", () => {
+describe("pre-stamp vaults", () => {
+  test("a vault without schemaVersion works as-is, with no prompt", () => {
     seedAccounts();
     writeFileSync(CONFIG, "{}");
-    const r = cvx(["ls"]);
+    const r = cvx(["accounts"]);
     expect(r.code).toBe(0);
-    expect(r.all).not.toContain("migrate");
-    expect(readFileSync(CONFIG, "utf8").trim()).toBe("{}");
-  });
-  test("exempt commands never prompt on a legacy vault", () => {
-    for (const args of [["activate", "-q"], ["which", PROJ], ["prompt"], ["accounts", "--names"]]) {
-      expect(cvx(args).all).not.toContain("migrate");
-    }
-  });
-  test("empty legacy vault stamps the schema silently", () => {
-    writeFileSync(ACCOUNTS, "{}");
-    writeFileSync(CONFIG, "{}");
-    cvx(["ls"]);
-    expect(JSON.parse(readFileSync(CONFIG, "utf8")).schemaVersion).toBe(2);
+    expect(r.out).toContain("work");
   });
 });
 
@@ -453,17 +440,34 @@ describe("team mismatch guard", () => {
     expect(cvx(["activate", PROJ]).out).not.toContain("team mismatch");
     rmSync(join(PROJ, ".env.local"), { force: true });
   });
+  test("a renamed team stays silent: old slug kept as an alias, or the deployment is confirmed", () => {
+    const note = (team: string) =>
+      writeFileSync(join(PROJ, ".env.local"), `CONVEX_DEPLOYMENT=dev:happy-otter-123 # team: ${team}, project: x\n`);
+    const accs = JSON.parse(readFileSync(ACCOUNTS, "utf8"));
+    accs.work.teams = [{ id: 1, slug: "wt-renamed", name: "WT", aliases: ["wt"] }];
+    writeFileSync(ACCOUNTS, JSON.stringify(accs));
+    note("wt"); // .env.local still carries the pre-rename slug
+    expect(cvx(["activate", PROJ]).out).not.toContain("team mismatch");
+    accs.work.deployments = ["happy-otter-123"];
+    writeFileSync(ACCOUNTS, JSON.stringify(accs));
+    note("some-stale-slug");
+    expect(cvx(["activate", PROJ]).out).not.toContain("team mismatch");
+    rmSync(join(PROJ, ".env.local"), { force: true });
+    seedAccounts();
+  });
 });
 
 describe("vault (passphrase-encrypted tokens)", () => {
   const env = { CVX_PASSPHRASE: "e2e-vault-passphrase" };
-  test("encrypt replaces plaintext tokens with pw blobs", () => {
+  test("encrypt replaces plaintext tokens with pw blobs, keeping metadata", () => {
     seedAccounts();
+    cvx(["email", "work", "me@work.dev"]);
     const r = cvx(["vault", "encrypt"], { env });
     expect(r.code).toBe(0);
     const raw = readFileSync(ACCOUNTS, "utf8");
     expect(raw).not.toContain("tok-work-AAA");
     expect(JSON.parse(raw).work.pw).toBeDefined();
+    expect(JSON.parse(raw).work.email).toBe("me@work.dev");
     expect(JSON.parse(readFileSync(CONFIG, "utf8")).storage).toBe("passphrase");
   });
   test("activate works while unlocked", () => {
@@ -485,6 +489,7 @@ describe("vault (passphrase-encrypted tokens)", () => {
   test("decrypt restores plaintext and removes the vault metadata", () => {
     expect(cvx(["vault", "decrypt"], { env }).code).toBe(0);
     expect(JSON.parse(readFileSync(ACCOUNTS, "utf8")).work.token).toBe("tok-work-AAA");
+    expect(JSON.parse(readFileSync(ACCOUNTS, "utf8")).work.email).toBe("me@work.dev");
     expect(existsSync(join(HOME, ".convex-switch", "vault.json"))).toBe(false);
     expect(JSON.parse(readFileSync(CONFIG, "utf8")).storage).toBe("file");
   });
@@ -511,18 +516,13 @@ describe("export / import via the CLI", () => {
   });
 });
 
-describe("refresh --all / help", () => {
+describe("refresh --all", () => {
   test("refresh --all with an empty vault dies before any browser opens", () => {
     writeFileSync(ACCOUNTS, "{}");
     const r = cvx(["refresh", "--all"]);
     expect(r.code).toBe(1);
     expect(r.err).toContain("No accounts");
     seedAccounts();
-  });
-  test("help lists the new commands", () => {
-    const out = cvx(["help"]).out;
-    for (const s of ["cvx use [account]", "cvx vault", "cvx export", "refresh --all", "upgrade"])
-      expect(out).toContain(s);
   });
 });
 
