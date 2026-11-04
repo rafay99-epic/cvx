@@ -19,4 +19,5 @@ concurrency:
 jobs:
   review:
     uses: rafay99-epic/pr-review/.github/workflows/pr-agent.yml@main
-    secrets: inherit
+    secrets:
+      CMD_API_KEY: ${{ secrets.CMD_API_KEY }}
